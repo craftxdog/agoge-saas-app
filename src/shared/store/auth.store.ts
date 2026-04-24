@@ -1,32 +1,73 @@
 import { create } from "zustand";
+import type {
+  AuthMembership,
+  AuthSession,
+  AuthUser,
+  MeSession,
+} from "@/modules/auth/schemas/auth.schema";
 
-type User = {
-  id: string;
-  email: string;
-  role: string;
-};
+type SessionPayload = AuthSession | (MeSession & { tokens?: never });
 
 type AuthState = {
-  user: User | null;
+  user: AuthUser | null;
   token: string | null;
+  activeMembership: AuthMembership | null;
+  memberships: AuthMembership[];
+  permissions: string[];
+  enabledModules: string[];
   isAuthenticated: boolean;
-
-  login: (data: { user: User; token: string }) => void;
+  isHydrated: boolean;
+  login: (session: AuthSession) => void;
+  setSession: (session: SessionPayload, token?: string) => void;
   logout: () => void;
+  setHydrated: (value: boolean) => void;
+  hasPermission: (permission: string) => boolean;
+  hasModule: (moduleKey: string) => boolean;
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+const normalizeSession = (session: SessionPayload, fallbackToken?: string) => {
+  const activeMembership = session.activeMembership ?? null;
+  const token = "tokens" in session ? session.tokens?.accessToken : fallbackToken;
+
+  return {
+    user: session.user,
+    token: token ?? null,
+    activeMembership,
+    memberships: session.memberships,
+    permissions: activeMembership?.permissions ?? [],
+    enabledModules: activeMembership?.enabledModules ?? [],
+  };
+};
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: localStorage.getItem("token"),
+  activeMembership: null,
+  memberships: [],
+  permissions: [],
+  enabledModules: [],
   isAuthenticated: false,
+  isHydrated: false,
 
-  login: ({ user, token }) => {
-    localStorage.setItem("token", token);
+  login: (session) => {
+    localStorage.setItem("token", session.tokens.accessToken);
 
     set({
-      user,
-      token,
+      ...normalizeSession(session),
       isAuthenticated: true,
+      isHydrated: true,
+    });
+  },
+
+  setSession: (session, token) => {
+    if (token) {
+      localStorage.setItem("token", token);
+    }
+
+    set({
+      ...normalizeSession(session, token ?? get().token ?? undefined),
+      isAuthenticated: true,
+      isHydrated: true,
     });
   },
 
@@ -36,7 +77,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({
       user: null,
       token: null,
+      activeMembership: null,
+      memberships: [],
+      permissions: [],
+      enabledModules: [],
       isAuthenticated: false,
+      isHydrated: true,
     });
   },
+
+  setHydrated: (value) => set({ isHydrated: value }),
+
+  hasPermission: (permission) => get().permissions.includes(permission),
+
+  hasModule: (moduleKey) => get().enabledModules.includes(moduleKey),
 }));

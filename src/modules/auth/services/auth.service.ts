@@ -1,22 +1,41 @@
 import { http } from "@/shared/api/http";
-import type { LoginSchema, RegisterSchema } from "../schemas/auth.schema";
+import type {
+  AuthSession,
+  LoginSchema,
+  MeSession,
+  RegisterOrganizationPayload,
+} from "../schemas/auth.schema";
 
-export type RegisterPayload = Omit<RegisterSchema, "confirmPassword">;
-type AuthResponse = {
-  user: {
-    id: string;
-    email: string;
-    role: string;
+export type ApiEnvelope<T> = {
+  success: boolean;
+  data: T;
+  meta: {
+    statusCode: number;
+    timestamp: string;
+    path: string;
+    requestId: string;
   };
-  accessToken: string;
 };
+
 export const authService = {
   login: (data: LoginSchema) =>
-    http.post<AuthResponse>("/auth/login", data),
+    http.post<ApiEnvelope<AuthSession>, LoginSchema>("/auth/login", data),
 
-  register: (data: RegisterPayload) =>
-    http.post<AuthResponse>("/auth/register", data),
+  registerOrganization: (data: RegisterOrganizationPayload) =>
+    http.post<ApiEnvelope<AuthSession>, RegisterOrganizationPayload>(
+      "/auth/register-organization",
+      data,
+    ),
 
-  me: () =>
-    http.get<{ user: AuthResponse["user"] }>("/auth/me"),
+  me: () => http.get<ApiEnvelope<MeSession>>("/auth/me"),
+
+  refresh: () => http.post<ApiEnvelope<AuthSession>>("/auth/refresh"),
+
+  switchOrganization: (organizationId: string) =>
+    http.post<ApiEnvelope<AuthSession>, { organizationId: string }>(
+      "/auth/switch-organization",
+      { organizationId },
+    ),
+
+  logout: () => http.post<ApiEnvelope<{ ok: boolean }>>("/auth/logout"),
 };

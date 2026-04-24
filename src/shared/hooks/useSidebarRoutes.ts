@@ -1,14 +1,46 @@
-import { useAuth } from "@/shared/hooks/useAuth";
 import { appRoutes } from "../../app/constant/routes";
+import { useAuthStore } from "../store/auth.store";
 
 export const useSidebarRoutes = () => {
-  const { user } = useAuth();
+  const { user, enabledModules, permissions } = useAuthStore();
 
-  return appRoutes.filter(route => {
-    if (!route.showInSidebar) return false;
+  if (!user) return [];
 
-    if (!route.roles) return true;
+  const filterRoutes = (routes: typeof appRoutes): typeof appRoutes => {
+    return routes
+      .filter((route) => {
+        if (route.showInSidebar === false) return false;
 
-    return route.roles.includes(user?.role as any);
-  });
+        if (
+          route.platformRoles &&
+          !route.platformRoles.includes(user.platformRole)
+        ) {
+          return false;
+        }
+
+        if (route.module && !enabledModules.includes(route.module)) {
+          return false;
+        }
+
+        if (
+          route.permissions?.some(
+            (permission) => !permissions.includes(permission),
+          )
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((route) => {
+        const children = route.children ? filterRoutes(route.children) : undefined;
+
+        return {
+          ...route,
+          children: children?.length ? children : undefined,
+        };
+      });
+  };
+
+  return filterRoutes(appRoutes);
 };

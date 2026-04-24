@@ -1,9 +1,7 @@
-import * as React from "react"
-import {
-  IconInnerShadowTop,
-} from "@tabler/icons-react"
-import { NavMain } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
+import * as React from "react";
+import { BrandMark } from "@/components/atoms/brand-mark";
+import { NavMain } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -12,20 +10,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { useSidebarRoutes } from "@/shared/hooks/useSidebarRoutes"
-
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-}
-
+} from "@/components/ui/sidebar";
+import { useSidebarNav } from "@/shared/hooks/useSidebarNav";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const routes = useSidebarRoutes();
+  const navItems = useSidebarNav();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -33,28 +23,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
+              className="h-auto data-[slot=sidebar-menu-button]:p-2!"
             >
-              <a href="#">
-                <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+              <BrandMark to="/app" />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain
-          items={routes.map(r => ({
-            title: r.label,
-            url: r.path === "" ? "/" : `/${r.path}`,
-            icon: r.icon,
-          }))}
-        />
+        <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
