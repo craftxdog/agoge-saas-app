@@ -12,13 +12,45 @@ import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import {
   useBusinessHours,
-  useDaySchedule,
   useLocations,
   useMemberSchedules,
   useScheduleExceptions,
 } from "../hooks/useSchedules";
 
-const today = new Date().toISOString().slice(0, 10);
+const resolveTenantDateParts = (timezone = "America/Managua") => {
+  const now = new Date();
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "long",
+  })
+    .format(now)
+    .toLowerCase();
+
+  const year = dateParts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = dateParts.find((part) => part.type === "month")?.value ?? "01";
+  const day = dateParts.find((part) => part.type === "day")?.value ?? "01";
+  const dayOfWeekMap = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  } as const;
+
+  return {
+    today: `${year}-${month}-${day}`,
+    dayName: weekday,
+    dayOfWeek: dayOfWeekMap[weekday as keyof typeof dayOfWeekMap] ?? 0,
+  };
+};
 
 const formatDate = (value: string) => {
   const date = new Date(value);
@@ -32,26 +64,33 @@ export function CustomerSchedulesView() {
   const { memberId } = useAccessContext();
   const { activeMembership } = useAuth();
   const [locationId, setLocationId] = useState("");
+  const tenantTimezone = activeMembership?.organization.timezone ?? "America/Managua";
+  const { today, dayName, dayOfWeek } = resolveTenantDateParts(tenantTimezone);
   const locations = useLocations({ isActive: true });
-  const daySchedule = useDaySchedule({
-    date: today,
-    locationId: locationId || undefined,
-  });
   const businessHours = useBusinessHours({
     locationId: locationId || undefined,
+    dayOfWeek,
   });
   const exceptions = useScheduleExceptions({
     locationId: locationId || undefined,
     dateFrom: today,
+    dateTo: today,
   });
-  const memberSchedules = useMemberSchedules(memberId ?? undefined, {
+  const weeklyMemberSchedules = useMemberSchedules(memberId ?? undefined, {
     locationId: locationId || undefined,
   });
+  const todayMemberSchedules = useMemberSchedules(memberId ?? undefined, {
+    locationId: locationId || undefined,
+    dayOfWeek,
+  });
 
-  const weeklyAvailability = memberSchedules.data ?? [];
-  const todayAvailability = weeklyAvailability.filter(
-    (item) => item.dayName === daySchedule.data?.dayName,
-  );
+  const weeklyAvailability = weeklyMemberSchedules.data ?? [];
+  const todayAvailability = todayMemberSchedules.data ?? [];
+  const businessHourItems = businessHours.data ?? [];
+  const exceptionItems = exceptions.data ?? [];
+  const isClosedToday =
+    exceptionItems.some((item) => item.isClosed) ||
+    !businessHourItems.some((item) => !item.isClosed);
 
   const locationOptions = locations.data ?? [];
 
@@ -103,11 +142,11 @@ export function CustomerSchedulesView() {
         <MetricCard
           icon={Clock3}
           label="Ventanas operativas"
-          value={String(daySchedule.data?.businessHours.length ?? 0)}
+          value={String(businessHourItems.length)}
           helper={
-            daySchedule.data?.isClosed
+            isClosedToday
               ? "La operacion de hoy figura cerrada"
-              : `${daySchedule.data?.timezone ?? activeMembership?.organization.timezone} · jornada activa`
+              : `${tenantTimezone} · jornada activa`
           }
         />
         <MetricCard
@@ -127,7 +166,7 @@ export function CustomerSchedulesView() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            {memberSchedules.isLoading ? (
+            {weeklyMemberSchedules.isLoading ? (
               Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="h-20 rounded-2xl" />
               ))
@@ -162,10 +201,10 @@ export function CustomerSchedulesView() {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {daySchedule.isLoading ? (
+              {businessHours.isLoading ? (
                 <Skeleton className="h-40 rounded-2xl" />
-              ) : daySchedule.data?.businessHours.length ? (
-                daySchedule.data.businessHours.map((item) => (
+              ) : businessHourItems.length ? (
+                businessHourItems.map((item) => (
                   <div key={item.id} className="rounded-2xl border bg-white/70 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -197,8 +236,8 @@ export function CustomerSchedulesView() {
             <CardContent className="grid gap-3">
               {exceptions.isLoading || businessHours.isLoading ? (
                 <Skeleton className="h-40 rounded-2xl" />
-              ) : exceptions.data?.length ? (
-                exceptions.data.map((item) => (
+              ) : exceptionItems.length ? (
+                exceptionItems.map((item) => (
                   <div key={item.id} className="rounded-2xl border bg-white/70 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -218,6 +257,32 @@ export function CustomerSchedulesView() {
               ) : (
                 <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
                   No hay excepciones activas reportadas en este momento.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-[1.75rem]">
+            <CardHeader>
+              <CardTitle>{`Tu disponibilidad de ${dayName}`}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {todayMemberSchedules.isLoading ? (
+                <Skeleton className="h-32 rounded-2xl" />
+              ) : todayAvailability.length ? (
+                todayAvailability.map((item) => (
+                  <div key={item.id} className="rounded-2xl border bg-white/70 p-4">
+                    <p className="font-semibold">
+                      {item.location?.name ?? "Sin sede asignada"}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {item.startTime} - {item.endTime}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                  No tienes bloques de disponibilidad cargados para hoy.
                 </div>
               )}
             </CardContent>

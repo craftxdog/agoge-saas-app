@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useLogout } from "@/shared/hooks/useLogout";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { Link } from "react-router-dom";
@@ -32,12 +33,39 @@ import { Link } from "react-router-dom";
 export function NavUser() {
   const { isMobile } = useSidebar();
   const { user, activeMembership } = useAuthStore();
+  const { isCustomerPortal } = useAccessContext();
   const logoutMutation = useLogout();
 
   if (!user) return null;
 
   const initials = `${user.firstName?.[0] ?? user.email[0]}${user.lastName?.[0] ?? ""}`.toUpperCase();
   const roleLabel = activeMembership?.roles.join(", ") || user.platformRole;
+  const menuItems = [
+    {
+      to: "/app/profile",
+      label: "Perfil",
+      icon: IconUserCircle,
+      visible: true,
+    },
+    {
+      to: "/app/billing",
+      label: isCustomerPortal ? "Mis cobros" : "Cobros",
+      icon: IconCreditCard,
+      visible: true,
+    },
+    {
+      to: "/app/settings",
+      label: "Organizacion",
+      icon: IconBuildingCommunity,
+      visible: !isCustomerPortal,
+    },
+    {
+      to: "/app/settings",
+      label: "Configuracion",
+      icon: IconSettings,
+      visible: !isCustomerPortal,
+    },
+  ].filter((item) => item.visible);
 
   return (
     <SidebarMenu>
@@ -92,30 +120,14 @@ export function NavUser() {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link to="/app/profile">
-                <IconUserCircle />
-                Perfil
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/app/settings">
-                <IconBuildingCommunity />
-                Organizacion
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/app/billing">
-                <IconCreditCard />
-                Cobros
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/app/settings">
-                <IconSettings />
-                Configuracion
-                </Link>
-              </DropdownMenuItem>
+              {menuItems.map((item) => (
+                <DropdownMenuItem key={item.label} asChild>
+                  <Link to={item.to}>
+                    <item.icon />
+                    {item.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />

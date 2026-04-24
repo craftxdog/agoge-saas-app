@@ -22,12 +22,17 @@ const resolveSocketUrl = () => {
   }
 };
 
+const resolveSocketNamespace = () => {
+  const namespace = import.meta.env.VITE_SOCKET_NAMESPACE?.trim() || "/realtime";
+  return namespace.startsWith("/") ? namespace : `/${namespace}`;
+};
+
 let socketInstance: AgogeSocket | null = null;
 
 export const createSocketClient = () => {
   if (socketInstance) return socketInstance;
 
-  socketInstance = io(resolveSocketUrl(), {
+  socketInstance = io(`${resolveSocketUrl()}${resolveSocketNamespace()}`, {
     path: import.meta.env.VITE_SOCKET_PATH || "/socket.io",
     autoConnect: false,
     withCredentials: true,
@@ -42,12 +47,11 @@ export const createSocketClient = () => {
 
 export const getSocketClient = () => socketInstance ?? createSocketClient();
 
-export const configureSocketAuth = (auth: {
-  token: string;
-  organizationId?: string;
-  memberId?: string;
-}) => {
+export const configureSocketAuth = (token: string) => {
   const socket = getSocketClient();
-  socket.auth = auth;
+  socket.auth = {
+    token,
+    accessToken: token,
+  };
   return socket;
 };

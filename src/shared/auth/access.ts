@@ -3,6 +3,18 @@ import type { AppRoute } from "@/shared/types/AppRoute.type";
 
 const CUSTOMER_PORTAL_MODULES = new Set(["billing", "schedules"]);
 const CUSTOMER_PORTAL_PATHS = new Set(["", "profile", "billing", "schedules"]);
+const CUSTOMER_BREAKOUT_PERMISSIONS = new Set([
+  "users.read",
+  "users.write",
+  "billing.write",
+  "schedules.write",
+  "settings.read",
+  "settings.write",
+  "modules.manage",
+  "roles.manage",
+  "audit.read",
+  "analytics.read",
+]);
 
 type AccessContextInput = {
   activeMembership?: AuthMembership | null;
@@ -25,7 +37,9 @@ export const createAccessContext = ({
   enabledModules = [],
   permissions = [],
 }: AccessContextInput) => {
-  const isCustomerPortal = isCustomerMembership(activeMembership);
+  const isCustomerPortal =
+    isCustomerMembership(activeMembership) &&
+    !permissions.some((permission) => CUSTOMER_BREAKOUT_PERMISSIONS.has(permission));
   const visibleModules = isCustomerPortal
     ? enabledModules.filter((moduleKey) => CUSTOMER_PORTAL_MODULES.has(moduleKey))
     : enabledModules;
@@ -47,4 +61,3 @@ export const createAccessContext = ({
     },
   };
 };
-
