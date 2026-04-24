@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePayments } from "@/modules/billing/hooks/useBilling";
+import { useMemberSchedules } from "@/modules/schedules/hooks/useSchedules";
+import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
 
@@ -52,18 +55,36 @@ export default function Dashboard() {
     user,
     activeMembership,
     memberships,
-    enabledModules,
     permissions,
     hasPermission,
   } = useAuth();
+  const {
+    isCustomerPortal,
+    memberId,
+    visibleModules: accessibleModules,
+  } = useAccessContext();
   const switchOrganization = useSwitchOrganization();
+  const customerPayments = usePayments(
+    {
+      memberId: memberId ?? undefined,
+      sortBy: "dueDate",
+      sortDirection: "desc",
+      limit: 12,
+    },
+    { enabled: Boolean(memberId) && isCustomerPortal },
+  );
+  const customerSchedules = useMemberSchedules(memberId ?? undefined, undefined);
 
   const visibleModules = moduleCards.filter((module) =>
-    enabledModules.includes(module.key) && hasPermission(module.permission),
+    accessibleModules.includes(module.key) && hasPermission(module.permission),
   );
-  const isCustomerExperience =
-    activeMembership?.roles.includes("customer") &&
-    !permissions.includes("users.read");
+  const isCustomerExperience = isCustomerPortal;
+  const ownPayments = customerPayments.data?.items ?? [];
+  const openPayments = ownPayments.filter(
+    (payment) => !["PAID", "CANCELLED", "REFUNDED"].includes(payment.status),
+  );
+  const overduePayments = ownPayments.filter((payment) => payment.status === "OVERDUE");
+  const nextDueDate = openPayments[0]?.dueDate;
 
   if (!activeMembership) {
     return (
@@ -129,12 +150,51 @@ export default function Dashboard() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3 xl:w-[420px]">
-            <SummaryCard label="Modulos activos" value={enabledModules.length} />
-            <SummaryCard label="Permisos" value={permissions.length} />
-            <SummaryCard label="Roles" value={activeMembership.roles.length} />
+            <SummaryCard
+              label={isCustomerExperience ? "Modulos visibles" : "Modulos activos"}
+              value={visibleModules.length}
+            />
+            <SummaryCard
+              label={isCustomerExperience ? "Cobros abiertos" : "Permisos"}
+              value={isCustomerExperience ? openPayments.length : permissions.length}
+            />
+            <SummaryCard
+              label={isCustomerExperience ? "Bloques agenda" : "Roles"}
+              value={
+                isCustomerExperience
+                  ? (customerSchedules.data?.length ?? 0)
+                  : activeMembership.roles.length
+              }
+            />
           </div>
         </div>
       </div>
+
+      {isCustomerExperience ? (
+        <div className="grid gap-4 md:grid-cols-3">
+          <CustomerInsightCard
+            label="Tus cobros pendientes"
+            value={String(openPayments.length)}
+            helper={
+              nextDueDate
+                ? `Proximo vencimiento: ${new Intl.DateTimeFormat("es-NI", {
+                    dateStyle: "medium",
+                  }).format(new Date(nextDueDate))}`
+                : "No tienes vencimientos pendientes"
+            }
+          />
+          <CustomerInsightCard
+            label="Cobros vencidos"
+            value={String(overduePayments.length)}
+            helper="Solo incluye cargos asignados a tu membresia"
+          />
+          <CustomerInsightCard
+            label="Disponibilidad cargada"
+            value={String(customerSchedules.data?.length ?? 0)}
+            helper="Bloques semanales visibles para tu usuario"
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {visibleModules.map((module) => (
@@ -189,6 +249,28 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
         <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
           <ShieldCheck className="size-5" />
         </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CustomerInsightCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+}) {
+  return (
+    <Card className="rounded-[1.2rem] border bg-card shadow-sm">
+      <CardContent className="p-5">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          {label}
+        </p>
+        <p className="mt-2 text-2xl font-semibold">{value}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{helper}</p>
       </CardContent>
     </Card>
   );

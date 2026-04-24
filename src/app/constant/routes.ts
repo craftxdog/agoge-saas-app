@@ -15,12 +15,15 @@ export const appRoutes: AppRoute[] = [
     label: "Inicio",
     path: "",
     icon: IconDashboard,
+    allowCustomerPortal: true,
     showInSidebar: true,
   },
   {
     label: "Perfil",
+    customerLabel: "Mi perfil",
     path: "profile",
     icon: IconUsers,
+    allowCustomerPortal: true,
     showInSidebar: false,
   },
   {
@@ -29,22 +32,27 @@ export const appRoutes: AppRoute[] = [
     icon: IconUsers,
     module: "users",
     permissions: ["users.read"],
+    allowCustomerPortal: false,
     showInSidebar: true,
   },
   {
     label: "Cobros",
+    customerLabel: "Mis cobros",
     path: "billing",
     icon: IconCreditCard,
     module: "billing",
     permissions: ["billing.read"],
+    allowCustomerPortal: true,
     showInSidebar: true,
   },
   {
     label: "Horarios",
+    customerLabel: "Mi agenda",
     path: "schedules",
     icon: IconCalendar,
     module: "schedules",
     permissions: ["schedules.read"],
+    allowCustomerPortal: true,
     showInSidebar: true,
   },
   {
@@ -53,6 +61,7 @@ export const appRoutes: AppRoute[] = [
     icon: IconShieldCheck,
     module: "settings",
     permissions: ["roles.manage"],
+    allowCustomerPortal: false,
     showInSidebar: true,
   },
   {
@@ -61,6 +70,7 @@ export const appRoutes: AppRoute[] = [
     icon: IconChartBar,
     module: "analytics",
     permissions: ["analytics.read"],
+    allowCustomerPortal: false,
     showInSidebar: true,
   },
   {
@@ -69,6 +79,7 @@ export const appRoutes: AppRoute[] = [
     icon: IconShieldLock,
     module: "audit",
     permissions: ["audit.read"],
+    allowCustomerPortal: false,
     showInSidebar: true,
   },
   {
@@ -77,6 +88,7 @@ export const appRoutes: AppRoute[] = [
     icon: IconSettings,
     module: "settings",
     permissions: ["settings.read"],
+    allowCustomerPortal: false,
     showInSidebar: true,
   },
 ];

@@ -22,11 +22,15 @@ import {
   getStoredTenantBranding,
   resolveBrandAssetUrl,
 } from "@/modules/settings/utils/tenant-branding";
+import { useAccessContext } from "@/shared/hooks/useAccessContext";
+import { useSocket } from "@/shared/hooks/useSocket";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { Breadcrumbs } from "./breadcrumbs";
 
 export function SiteHeader() {
   const { activeMembership, permissions, enabledModules } = useAuthStore();
+  const { isCustomerPortal, memberId } = useAccessContext();
+  const { isConnected, isEnabled } = useSocket();
   const brandingQuery = useTenantBranding();
   const branding =
     brandingQuery.data ?? getStoredTenantBranding(activeMembership?.organization.id);
@@ -35,7 +39,9 @@ export function SiteHeader() {
     getStoredBrandAssetVersion(activeMembership?.organization.id, "icon"),
   );
   const canReadNotifications =
-    permissions.includes("analytics.read") && enabledModules.includes("analytics");
+    !isCustomerPortal &&
+    permissions.includes("analytics.read") &&
+    enabledModules.includes("analytics");
   const operations = useAnalyticsOperations(
     { groupBy: "week" },
     { enabled: canReadNotifications },
@@ -105,11 +111,13 @@ export function SiteHeader() {
                   <div>
                     <p className="text-sm font-semibold">Centro de notificaciones</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Estado operativo del tenant activo.
+                      {isCustomerPortal
+                        ? "Estado de tu acceso y sincronizacion en tiempo real."
+                        : "Estado operativo del tenant activo."}
                     </p>
                   </div>
                   <Badge variant="outline" className="rounded-full">
-                    {canReadNotifications ? "API conectada" : "Sin acceso"}
+                    {isEnabled ? (isConnected ? "Realtime activo" : "Reconectando") : "Sin realtime"}
                   </Badge>
                 </div>
               </DropdownMenuLabel>
@@ -124,6 +132,31 @@ export function SiteHeader() {
                       className="h-16 animate-pulse rounded-xl border bg-muted/35"
                     />
                   ))
+                ) : isCustomerPortal ? (
+                  <>
+                    <div className="rounded-xl border border-border/70 bg-card px-3 py-3">
+                      <p className="text-sm font-medium">Scope de cliente</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Solo ves modulos y datos asociados a tu membresia activa.
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border/70 bg-card px-3 py-3">
+                      <p className="text-sm font-medium">Miembro activo</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {memberId ?? "Sin membresia activa"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border/70 bg-card px-3 py-3">
+                      <p className="text-sm font-medium">Conexion</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {isEnabled
+                          ? isConnected
+                            ? "Socket conectado y sincronizando cambios del tenant."
+                            : "Socket habilitado, esperando reconexion."
+                          : "Realtime deshabilitado en esta configuracion."}
+                      </p>
+                    </div>
+                  </>
                 ) : canReadNotifications ? (
                   alertItems.length ? (
                     alertItems.map((item) => (
@@ -159,7 +192,11 @@ export function SiteHeader() {
 
               <div className="flex items-center justify-between px-4 py-3">
                 <p className="text-xs text-muted-foreground">
-                  Listo para realtime con `socket.io`.
+                  {isEnabled
+                    ? isConnected
+                      ? "Sincronizado con Socket.IO."
+                      : "Socket.IO intentando reconectar."
+                    : "Socket.IO deshabilitado."}
                 </p>
                 <Button variant="ghost" size="sm" className="rounded-full">
                   <CheckCheck className="size-4" />

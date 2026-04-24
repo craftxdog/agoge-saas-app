@@ -22,9 +22,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { CursorPagination } from "@/shared/components/CursorPagination";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
+import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
 import { useMembers } from "@/modules/users/hooks/useUsers";
+import { CustomerBillingView } from "../components/CustomerBillingView";
 import {
   paymentFrequencies,
   paymentStatuses,
@@ -103,6 +105,7 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
   ) as Partial<T>;
 
 export default function BillingPage() {
+  const { isCustomerPortal } = useAccessContext();
   const [activeTab, setActiveTab] = useState("payments");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | undefined>();
@@ -164,6 +167,10 @@ export default function BillingPage() {
   const memberOptions = members.data?.items ?? [];
   const selectedPayment =
     paymentDetail.data ?? payments.data?.items.find((payment) => payment.id === selectedPaymentId);
+
+  if (isCustomerPortal) {
+    return <CustomerBillingView />;
+  }
 
   return (
     <section className="grid gap-8">

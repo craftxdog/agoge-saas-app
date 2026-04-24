@@ -5,10 +5,12 @@ export type AppRoute = {
   label: string;
   path: string;
   icon?: Icon;
+  customerLabel?: string;
 
   module?: string;
   permissions?: string[];
   platformRoles?: AuthUser["platformRole"][];
+  allowCustomerPortal?: boolean;
 
   showInSidebar?: boolean;
   showInMobile?: boolean;

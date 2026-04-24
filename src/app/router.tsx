@@ -63,6 +63,7 @@ export const AppRouter = createBrowserRouter([
             requireTenant
             requiredModules={["users"]}
             requiredPermissions={["users.read"]}
+            allowCustomerPortal={false}
           >
             <MembersPage />
           </ProtectedRoute>
@@ -87,6 +88,7 @@ export const AppRouter = createBrowserRouter([
             requireTenant
             requiredModules={["analytics"]}
             requiredPermissions={["analytics.read"]}
+            allowCustomerPortal={false}
           >
             <AnalyticsDashboard />
           </ProtectedRoute>
@@ -111,6 +113,7 @@ export const AppRouter = createBrowserRouter([
             requireTenant
             requiredModules={["settings"]}
             requiredPermissions={["roles.manage"]}
+            allowCustomerPortal={false}
           >
             <RbacPage />
           </ProtectedRoute>
@@ -123,6 +126,7 @@ export const AppRouter = createBrowserRouter([
             requireTenant
             requiredModules={["audit"]}
             requiredPermissions={["audit.read"]}
+            allowCustomerPortal={false}
           >
             <AuditPage />
           </ProtectedRoute>
@@ -135,6 +139,7 @@ export const AppRouter = createBrowserRouter([
             requireTenant
             requiredModules={["settings"]}
             requiredPermissions={["settings.read"]}
+            allowCustomerPortal={false}
           >
             <CompanySettingsPage />
           </ProtectedRoute>

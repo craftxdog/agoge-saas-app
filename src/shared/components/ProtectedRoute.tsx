@@ -8,6 +8,7 @@ type Props = PropsWithChildren<{
   requiredModules?: string[];
   requiredPermissions?: string[];
   requireTenant?: boolean;
+  allowCustomerPortal?: boolean;
 }>;
 
 export const ProtectedRoute = ({
@@ -16,6 +17,7 @@ export const ProtectedRoute = ({
   requiredModules,
   requiredPermissions,
   requireTenant = false,
+  allowCustomerPortal = true,
 }: Props) => {
   const {
     isAuthenticated,
@@ -25,6 +27,7 @@ export const ProtectedRoute = ({
     permissions,
     isHydrated,
   } = useAuth();
+  const isCustomerPortal = activeMembership?.roles.includes("customer") ?? false;
 
   if (!isHydrated) return null;
 
@@ -39,6 +42,10 @@ export const ProtectedRoute = ({
   }
 
   if (requireTenant && !activeMembership) {
+    return <Navigate to="/app" replace />;
+  }
+
+  if (!allowCustomerPortal && isCustomerPortal) {
     return <Navigate to="/app" replace />;
   }
 

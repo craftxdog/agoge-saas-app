@@ -17,10 +17,12 @@ import {
 import { useSidebarNav } from "@/shared/hooks/useSidebarNav";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { Link } from "react-router-dom";
+import { useAccessContext } from "@/shared/hooks/useAccessContext";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navItems = useSidebarNav();
   const activeMembership = useAuthStore((state) => state.activeMembership);
+  const { isCustomerPortal } = useAccessContext();
   const brandingQuery = useTenantBranding();
   const branding =
     brandingQuery.data ?? getStoredTenantBranding(activeMembership?.organization.id);
@@ -56,7 +58,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                Tenant activo
+                {isCustomerPortal ? "Portal cliente" : "Tenant activo"}
               </p>
               <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
                 {organizationName}

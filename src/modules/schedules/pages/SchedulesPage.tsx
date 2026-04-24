@@ -20,7 +20,9 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
+import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useMembers } from "@/modules/users/hooks/useUsers";
+import { CustomerSchedulesView } from "../components/CustomerSchedulesView";
 import {
   dayOptions,
   type CreateBusinessHour,
@@ -87,6 +89,7 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
   ) as Partial<T>;
 
 export default function SchedulesPage() {
+  const { isCustomerPortal } = useAccessContext();
   const [locationSearch, setLocationSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [dayDate, setDayDate] = useState(today);
@@ -137,6 +140,10 @@ export default function SchedulesPage() {
   const deleteMemberSchedule = useDeleteMemberSchedule();
 
   const locationOptions = locations.data ?? [];
+
+  if (isCustomerPortal) {
+    return <CustomerSchedulesView />;
+  }
 
   return (
     <section className="grid gap-8">

@@ -1,22 +1,13 @@
 import { io, type Socket } from "socket.io-client";
 import { baseURL } from "@/shared/api/client";
-
-type ServerToClientEvents = {
-  "notifications:new": (payload: unknown) => void;
-  "audit:new": (payload: unknown) => void;
-  "billing:updated": (payload: unknown) => void;
-  "members:updated": (payload: unknown) => void;
-  "settings:updated": (payload: unknown) => void;
-};
-
-type ClientToServerEvents = {
-  "tenant:join": (payload: { organizationId: string }) => void;
-  "tenant:leave": (payload: { organizationId: string }) => void;
-  ping: () => void;
-};
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  RealtimeEventName,
+} from "./socket-contract";
 
 export type AgogeSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
-export type AgogeSocketEvent = keyof ServerToClientEvents;
+export type AgogeSocketEvent = RealtimeEventName;
 
 const resolveSocketUrl = () => {
   const configuredUrl = import.meta.env.VITE_SOCKET_URL?.trim();
