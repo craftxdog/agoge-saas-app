@@ -109,47 +109,49 @@ export default function Dashboard() {
   }
 
   return (
-    <section className="grid gap-8">
-      <div className="overflow-hidden rounded-[2rem] border bg-[linear-gradient(135deg,_rgba(111,162,154,0.16),_rgba(238,181,128,0.14))] p-8 shadow-sm">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
-            {activeMembership.organization.name}
-          </p>
-          <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight md:text-5xl">
-            {isCustomerExperience
-              ? `Hola, ${user?.firstName}. Este es tu portal de cliente.`
-              : `Bienvenido, ${user?.firstName}. Tu workspace ya esta conectado al modelo SaaS.`}
-          </h1>
-          <p className="mt-4 text-muted-foreground">
-            {isCustomerExperience
-              ? "Tu inicio se adapta a los permisos reales de tu membresia para mostrar solo pagos, agenda y funciones de autoservicio autorizadas."
-              : "El menu se construye con los modulos y permisos que vienen en tu membresia activa."}
-          </p>
-        </div>
-      </div>
+    <section className="grid gap-6">
+      <div className="rounded-[1.6rem] border bg-card px-7 py-6 shadow-sm">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
+              {activeMembership.organization.name}
+            </p>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight md:text-4xl">
+              {isCustomerExperience
+                ? `Hola, ${user?.firstName}. Este es tu portal de cliente.`
+                : `Bienvenido, ${user?.firstName}.`}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
+              {isCustomerExperience
+                ? "Tu panel muestra solo los modulos y datos autorizados para autoservicio."
+                : "Este espacio se adapta a la membresia activa, los modulos habilitados y los permisos que entrega la API."}
+            </p>
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard label="Modulos activos" value={enabledModules.length} />
-        <SummaryCard label="Permisos" value={permissions.length} />
-        <SummaryCard label="Roles" value={activeMembership.roles.length} />
+          <div className="grid gap-3 sm:grid-cols-3 xl:w-[420px]">
+            <SummaryCard label="Modulos activos" value={enabledModules.length} />
+            <SummaryCard label="Permisos" value={permissions.length} />
+            <SummaryCard label="Roles" value={activeMembership.roles.length} />
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {visibleModules.map((module) => (
-          <Card key={module.key} className="rounded-[1.5rem]">
-            <CardHeader>
-              <div className="mb-3 grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <Card key={module.key} className="rounded-[1.35rem] border bg-card shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="mb-4 grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
                 <module.icon className="size-5" />
               </div>
-              <CardTitle>{module.title}</CardTitle>
+              <CardTitle className="text-xl">{module.title}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-5">
               <p className="text-sm leading-6 text-muted-foreground">
                 {module.description}
               </p>
-              <Button asChild variant="outline" className="justify-between rounded-full">
+              <Button asChild variant="outline" className="justify-between rounded-xl">
                 <Link to={module.href}>
-                  Abrir
+                  Abrir modulo
                   <ChevronRight className="size-4" />
                 </Link>
               </Button>
@@ -159,7 +161,7 @@ export default function Dashboard() {
       </div>
 
       {!visibleModules.length && (
-        <Card className="rounded-[1.5rem]">
+        <Card className="rounded-[1.35rem] border bg-card shadow-sm">
           <CardContent className="p-6">
             <p className="font-semibold">No hay modulos visibles para este rol</p>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -176,13 +178,17 @@ export default function Dashboard() {
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
   return (
-    <Card className="rounded-[1.5rem]">
-      <CardContent className="flex items-center justify-between p-6">
+    <Card className="rounded-[1.2rem] border bg-card shadow-sm">
+      <CardContent className="flex items-center justify-between p-5">
         <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-2 text-3xl font-semibold">{value}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold">{value}</p>
         </div>
-        <ShieldCheck className="size-9 text-primary" />
+        <span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+          <ShieldCheck className="size-5" />
+        </span>
       </CardContent>
     </Card>
   );

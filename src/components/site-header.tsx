@@ -1,10 +1,9 @@
 import {
   Bell,
-  BellDot,
   Building2,
+  CalendarClock,
   CheckCheck,
-  Sparkles,
-  TriangleAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,9 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useAnalyticsDashboard } from "@/modules/analytics/hooks/useAnalyticsDashboard";
+import { useAnalyticsOperations } from "@/modules/analytics/hooks/useAnalyticsResources";
 import { useTenantBranding } from "@/modules/settings/hooks/useTenantBranding";
 import {
   getStoredBrandAssetVersion,
@@ -36,146 +34,143 @@ export function SiteHeader() {
     branding?.iconUrl,
     getStoredBrandAssetVersion(activeMembership?.organization.id, "icon"),
   );
-  const canReadOperationalAlerts =
+  const canReadNotifications =
     permissions.includes("analytics.read") && enabledModules.includes("analytics");
-  const notifications = useAnalyticsDashboard(
+  const operations = useAnalyticsOperations(
     { groupBy: "week" },
-    { enabled: canReadOperationalAlerts },
+    { enabled: canReadNotifications },
   );
-  const unreadCount = notifications.data?.operations.unreadNotifications ?? 0;
-  const insights = notifications.data?.insights ?? [];
+
+  const unreadCount = operations.data?.unreadNotifications ?? 0;
+  const upcomingExceptions = operations.data?.upcomingExceptions ?? 0;
+  const auditEvents = operations.data?.auditEvents ?? 0;
+  const alertItems = [
+    {
+      key: "notifications",
+      label: "Notificaciones sin leer",
+      value: unreadCount,
+      icon: Bell,
+    },
+    {
+      key: "exceptions",
+      label: "Excepciones proximas",
+      value: upcomingExceptions,
+      icon: CalendarClock,
+    },
+    {
+      key: "audit",
+      label: "Eventos de auditoria",
+      value: auditEvents,
+      icon: ShieldCheck,
+    },
+  ].filter((item) => item.value > 0);
 
   return (
-    <header className="z-20 border-b border-border/70 bg-background/70 backdrop-blur-xl">
-      <div className="flex min-h-(--header-height) items-center px-4 py-4 lg:px-6">
+    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/78 backdrop-blur-xl">
+      <div className="flex min-h-(--header-height) items-center gap-4 px-5 lg:px-7">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <SidebarTrigger className="size-10 rounded-2xl border border-border/70 bg-white/70 text-foreground shadow-sm" />
-          <Separator
-            orientation="vertical"
-            className="mx-1 hidden data-[orientation=vertical]:h-8 sm:block"
-          />
-
+          <SidebarTrigger className="size-10 rounded-xl border border-border/70 bg-white/80 text-foreground shadow-sm" />
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Sparkles className="size-4 text-primary" />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.28em]">
-                Workspace
-              </span>
-            </div>
-            <div className="mt-2 min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Workspace
+            </p>
+            <div className="mt-1">
               <Breadcrumbs />
             </div>
           </div>
         </div>
 
-        <div className="ml-4 flex items-center gap-3">
-          {canReadOperationalAlerts ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="relative h-12 rounded-2xl border-border/70 bg-white/75 px-4 shadow-sm"
-                >
-                  {unreadCount > 0 ? (
-                    <BellDot className="size-5 text-primary" />
-                  ) : (
-                    <Bell className="size-5" />
-                  )}
-                  <span className="hidden text-sm font-semibold sm:inline">
-                    Notificaciones
-                  </span>
-                  {unreadCount > 0 ? (
-                    <span className="absolute -right-1.5 -top-1.5 grid min-h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground shadow-lg">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  ) : null}
-                </Button>
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent
-                align="end"
-                sideOffset={10}
-                className="w-[380px] rounded-[1.5rem] border border-border/70 p-0 shadow-[0_30px_80px_rgba(30,44,38,0.18)]"
+        <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="relative h-11 rounded-xl border-border/70 bg-white/82 px-3 shadow-sm"
               >
-                <DropdownMenuLabel className="px-5 py-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-base font-semibold">Alertas operativas</p>
-                      <p className="text-sm font-normal text-muted-foreground">
-                        Resumen desde analytics del tenant activo.
-                      </p>
-                    </div>
-                    <Badge className="rounded-full bg-primary/12 px-3 py-1 text-primary shadow-none">
-                      {unreadCount} sin leer
-                    </Badge>
+                <Bell className="size-4" />
+                <span className="hidden text-sm font-medium sm:inline">Notificaciones</span>
+                <span className="ml-1 grid min-w-6 place-items-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-foreground">
+                  {canReadNotifications ? unreadCount : 0}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="w-[360px] rounded-[1.1rem] border border-border/70 p-0 shadow-[0_24px_60px_rgba(30,44,38,0.14)]"
+            >
+              <DropdownMenuLabel className="px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">Centro de notificaciones</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Estado operativo del tenant activo.
+                    </p>
                   </div>
-                </DropdownMenuLabel>
+                  <Badge variant="outline" className="rounded-full">
+                    {canReadNotifications ? "API conectada" : "Sin acceso"}
+                  </Badge>
+                </div>
+              </DropdownMenuLabel>
 
-                <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
 
-                <div className="max-h-[60vh] overflow-auto p-3">
-                  {notifications.isLoading ? (
-                    <div className="grid gap-3 p-2">
-                      {Array.from({ length: 3 }).map((_, index) => (
-                        <div
-                          key={index}
-                          className="h-22 animate-pulse rounded-[1.2rem] border bg-muted/50"
-                        />
-                      ))}
-                    </div>
-                  ) : insights.length ? (
-                    <div className="grid gap-3">
-                      {insights.map((item) => (
-                        <div
-                          key={`${item.metricKey}-${item.title}`}
-                          className="rounded-[1.25rem] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(248,250,248,0.92))] p-4 shadow-sm"
-                        >
-                          <div className="flex items-start gap-3">
-                            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-                              <TriangleAlert className="size-4" />
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-semibold">{item.title}</p>
-                                <Badge
-                                  variant="outline"
-                                  className="rounded-full text-[10px] uppercase tracking-[0.2em]"
-                                >
-                                  {item.severity}
-                                </Badge>
-                              </div>
-                              <p className="mt-2 text-sm text-muted-foreground">
-                                {item.message}
-                              </p>
-                            </div>
-                          </div>
+              <div className="grid gap-2 p-3">
+                {operations.isLoading ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-16 animate-pulse rounded-xl border bg-muted/35"
+                    />
+                  ))
+                ) : canReadNotifications ? (
+                  alertItems.length ? (
+                    alertItems.map((item) => (
+                      <div
+                        key={item.key}
+                        className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-3 py-3"
+                      >
+                        <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                          <item.icon className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Valor consolidado desde `analytics/operations`.
+                          </p>
                         </div>
-                      ))}
-                    </div>
+                        <Badge className="rounded-full">{item.value}</Badge>
+                      </div>
+                    ))
                   ) : (
-                    <div className="rounded-[1.3rem] border border-dashed p-5 text-sm text-muted-foreground">
-                      No hay alertas nuevas por ahora.
+                    <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      No hay alertas operativas pendientes.
                     </div>
-                  )}
-                </div>
+                  )
+                ) : (
+                  <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                    Este usuario no tiene permiso para leer notificaciones operativas.
+                  </div>
+                )}
+              </div>
 
-                <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
 
-                <div className="flex items-center justify-between px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Monitoreo vivo listo para socket.io
-                  </p>
-                  <Button variant="ghost" size="sm" className="rounded-full">
-                    <CheckCheck className="size-4" />
-                    Revisado
-                  </Button>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+              <div className="flex items-center justify-between px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  Listo para realtime con `socket.io`.
+                </p>
+                <Button variant="ghost" size="sm" className="rounded-full">
+                  <CheckCheck className="size-4" />
+                  Revisado
+                </Button>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <div className="hidden items-center gap-3 rounded-[1.5rem] border border-border/70 bg-white/78 px-4 py-2.5 shadow-sm sm:flex">
-            <span className="grid size-11 place-items-center overflow-hidden rounded-2xl border border-border/70 bg-white/90">
+          <div className="hidden items-center gap-3 rounded-xl border border-border/70 bg-white/82 px-3 py-2.5 shadow-sm md:flex">
+            <span className="grid size-10 place-items-center overflow-hidden rounded-xl border border-border/70 bg-muted/30">
               {iconUrl ? (
                 <img
                   src={iconUrl}
@@ -183,15 +178,14 @@ export function SiteHeader() {
                   className="h-full w-full object-contain p-1.5"
                 />
               ) : (
-                <Building2 className="size-5 text-primary" />
+                <Building2 className="size-4 text-primary" />
               )}
             </span>
-
-            <div className="text-right">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 Organizacion activa
               </p>
-              <p className="mt-1 text-lg font-semibold tracking-tight">
+              <p className="mt-0.5 text-sm font-semibold">
                 {activeMembership?.organization.name ?? "Sin tenant"}
               </p>
             </div>

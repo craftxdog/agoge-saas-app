@@ -2,14 +2,6 @@
 
 import { ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
-
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -24,6 +16,7 @@ import type { SidebarNavItem } from "@/shared/types/SidebarNavItem";
 
 export function NavMain({ items }: { items: SidebarNavItem[] }) {
   const location = useLocation();
+
   const isItemActive = (url: string) => {
     const normalized = url.replace(/\/+$/, "") || "/";
     const current = location.pathname.replace(/\/+$/, "") || "/";
@@ -36,11 +29,12 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
   };
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-sidebar-foreground/55">
+    <SidebarGroup className="p-0">
+      <SidebarGroupLabel className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
         Navegacion
       </SidebarGroupLabel>
-      <SidebarMenu>
+
+      <SidebarMenu className="gap-1.5">
         {items.map((item) => {
           const hasChildren = item.items && item.items.length > 0;
           const isParentActive = isItemActive(item.url);
@@ -53,24 +47,26 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                   isActive={isParentActive}
                   size="lg"
                   className={
-                    "h-14 rounded-[1.2rem] border border-transparent px-3.5 text-[15px] font-medium tracking-[0.01em] transition-all duration-200 [&>svg]:size-5" +
+                    "h-12 rounded-xl px-3 text-[15px] font-medium [&>svg]:size-4" +
                     (isParentActive
-                      ? " border-sidebar-primary/20 bg-[linear-gradient(135deg,rgba(79,143,131,0.18),rgba(255,255,255,0.96))] text-sidebar-foreground shadow-[0_12px_30px_rgba(60,88,80,0.12)]"
-                      : " hover:border-sidebar-border/70 hover:bg-white/70")
+                      ? " border border-sidebar-border/80 bg-white text-sidebar-foreground shadow-sm"
+                      : " text-sidebar-foreground/88 hover:bg-white/75")
                   }
                 >
                   <Link to={item.url}>
-                    {item.icon && (
-                      <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-sidebar-border/70 bg-white/80 text-sidebar-foreground shadow-sm">
+                    {item.icon ? (
+                      <span
+                        className={
+                          "grid size-8 shrink-0 place-items-center rounded-lg" +
+                          (isParentActive
+                            ? " bg-primary/10 text-primary"
+                            : " bg-muted/35 text-sidebar-foreground/75")
+                        }
+                      >
                         <item.icon />
                       </span>
-                    )}
-                    <span>{item.title}</span>
-                    {isParentActive ? (
-                      <Badge className="ml-auto rounded-full bg-sidebar-primary/12 px-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary shadow-none">
-                        Aqui
-                      </Badge>
                     ) : null}
+                    <span>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -78,67 +74,54 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
           }
 
           return (
-            <Collapsible
-              key={item.title}
-              asChild
-              defaultOpen={item.isActive}
-              className="group/collapsible"
-            >
-              <SidebarMenuItem>
-
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton
-                    isActive={isParentActive}
-                    size="lg"
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton
+                isActive={isParentActive}
+                size="lg"
+                className={
+                  "h-12 rounded-xl px-3 text-[15px] font-medium [&>svg]:size-4" +
+                  (isParentActive
+                    ? " border border-sidebar-border/80 bg-white text-sidebar-foreground shadow-sm"
+                    : " text-sidebar-foreground/88 hover:bg-white/75")
+                }
+              >
+                {item.icon ? (
+                  <span
                     className={
-                      "h-14 rounded-[1.2rem] border border-transparent px-3.5 text-[15px] font-medium tracking-[0.01em] transition-all duration-200 [&>svg]:size-5" +
+                      "grid size-8 shrink-0 place-items-center rounded-lg" +
                       (isParentActive
-                        ? " border-sidebar-primary/20 bg-[linear-gradient(135deg,rgba(79,143,131,0.18),rgba(255,255,255,0.96))] text-sidebar-foreground shadow-[0_12px_30px_rgba(60,88,80,0.12)]"
-                        : " hover:border-sidebar-border/70 hover:bg-white/70")
+                        ? " bg-primary/10 text-primary"
+                        : " bg-muted/35 text-sidebar-foreground/75")
                     }
                   >
-                    {item.icon && (
-                      <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-sidebar-border/70 bg-white/80 text-sidebar-foreground shadow-sm">
-                        <item.icon />
-                      </span>
-                    )}
-                    <span>{item.title}</span>
+                    <item.icon />
+                  </span>
+                ) : null}
+                <span>{item.title}</span>
+                <ChevronRight className="ml-auto text-muted-foreground" />
+              </SidebarMenuButton>
 
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
+              <SidebarMenuSub className="mx-0 mt-1 border-l-0 px-0 py-0">
+                {item.items?.map((subItem) => {
+                  const isSubActive = isItemActive(subItem.url);
 
-                <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out">
-                  <SidebarMenuSub>
-                    {item.items?.map((subItem: SidebarNavItem) => {
-                      const isSubActive = isItemActive(subItem.url);
-
-                      return (
-                        <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild isActive={isSubActive}>
-                            <Link
-                              to={subItem.url}
-                              className={
-                                "flex items-center gap-2 rounded-xl px-2 py-1.5 text-[14px]" +
-                                (isSubActive ? " font-semibold text-primary" : "")
-                              }
-                            >
-                              {subItem.icon && (
-                                <span className="grid size-7 place-items-center rounded-xl bg-sidebar-primary/8 text-primary">
-                                  <subItem.icon className="size-4" />
-                                </span>
-                              )}
-                              <span>{subItem.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      );
-                    })}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-
-              </SidebarMenuItem>
-            </Collapsible>
+                  return (
+                    <SidebarMenuSubItem key={subItem.title}>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={isSubActive}
+                        className={
+                          "ml-11 h-10 rounded-lg px-3 text-[14px]" +
+                          (isSubActive ? " bg-white text-primary shadow-sm" : "")
+                        }
+                      >
+                        <Link to={subItem.url}>{subItem.title}</Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  );
+                })}
+              </SidebarMenuSub>
+            </SidebarMenuItem>
           );
         })}
       </SidebarMenu>

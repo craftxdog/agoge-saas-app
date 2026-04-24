@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Badge } from "@/components/ui/badge";
+import { Building2 } from "lucide-react";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import {
@@ -7,9 +7,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useTenantBranding } from "@/modules/settings/hooks/useTenantBranding";
 import {
@@ -35,80 +32,55 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     branding?.iconUrl,
     getStoredBrandAssetVersion(activeMembership?.organization.id, "icon"),
   );
-  const organizationName = activeMembership?.organization.name ?? "Agoge Academy";
-  const organizationInitial = organizationName.charAt(0).toUpperCase();
+  const organizationName = activeMembership?.organization.name ?? "Organizacion";
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader className="px-3 pt-3 pb-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="h-auto border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
-            >
-              <Link
-                to="/app"
-                className="group relative overflow-hidden rounded-[1.9rem] border border-sidebar-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(241,236,224,0.9))] p-4 shadow-[0_18px_50px_rgba(76,98,86,0.12)]"
-              >
-                <div className="pointer-events-none absolute inset-x-4 top-0 h-20 rounded-b-full bg-[radial-gradient(circle_at_top,rgba(79,143,131,0.18),transparent_72%)]" />
-                <div className="relative flex items-center justify-between gap-2">
-                  <Badge className="rounded-full bg-sidebar-primary/12 px-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
-                    Tenant activo
-                  </Badge>
-                  <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                    SaaS
-                  </span>
-                </div>
+      <SidebarHeader className="border-b border-sidebar-border/70 px-4 py-4">
+        <Link
+          to="/app"
+          className="rounded-[1.35rem] border border-sidebar-border/80 bg-white/88 p-3 shadow-sm transition-colors hover:bg-white"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-sidebar-border/70 bg-muted/40">
+              {iconUrl ? (
+                <img
+                  src={iconUrl}
+                  alt={organizationName}
+                  className="h-full w-full object-contain p-1.5"
+                />
+              ) : (
+                <Building2 className="size-5 text-primary" />
+              )}
+            </span>
 
-                <div className="relative mt-4 rounded-[1.5rem] border border-sidebar-border/70 bg-white/80 p-3 shadow-inner">
-                  <div className="flex h-16 items-center justify-center rounded-[1.1rem] bg-[radial-gradient(circle_at_center,rgba(79,143,131,0.14),rgba(255,255,255,0.96)_62%)]">
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt={organizationName}
-                        className="h-full w-full object-contain object-center"
-                      />
-                    ) : (
-                      <span className="font-display text-2xl font-semibold tracking-tight text-sidebar-foreground">
-                        {organizationName}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                Tenant activo
+              </p>
+              <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
+                {organizationName}
+              </p>
+            </div>
+          </div>
 
-                <div className="relative mt-4 flex items-center gap-3">
-                  <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-sidebar-border/70 bg-white/90 shadow-sm">
-                    {iconUrl ? (
-                      <img
-                        src={iconUrl}
-                        alt={organizationName}
-                        className="h-full w-full object-contain p-1.5"
-                      />
-                    ) : (
-                      <span className="text-base font-semibold text-primary">
-                        {organizationInitial}
-                      </span>
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[18px] font-semibold tracking-tight text-sidebar-foreground">
-                      {organizationName}
-                    </p>
-                    <p className="truncate text-xs uppercase tracking-[0.24em] text-muted-foreground">
-                      Experiencia operativa
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+          {logoUrl ? (
+            <div className="mt-3 flex h-11 items-center justify-center rounded-xl border border-sidebar-border/60 bg-muted/20 px-3">
+              <img
+                src={logoUrl}
+                alt={organizationName}
+                className="h-full w-full object-contain object-center"
+              />
+            </div>
+          ) : null}
+        </Link>
       </SidebarHeader>
-      <SidebarContent className="px-2 pb-2">
+
+      <SidebarContent className="px-3 py-4">
         <NavMain items={navItems} />
       </SidebarContent>
-      <SidebarFooter className="px-3 pt-2 pb-3">
+
+      <SidebarFooter className="border-t border-sidebar-border/70 px-4 py-4">
         <NavUser />
       </SidebarFooter>
     </Sidebar>
