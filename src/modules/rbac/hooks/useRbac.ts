@@ -7,6 +7,7 @@ import {
 import toast from "react-hot-toast";
 import {
   accessMatrixSchema,
+  type CreatePermission,
   memberRolesSchema,
   permissionSchema,
   roleSchema,
@@ -105,6 +106,19 @@ export const useCreateRbacRole = () => {
       toast.success("Rol creado.");
     },
     onError: () => toast.error("No pudimos crear el rol."),
+  });
+};
+
+export const useCreateRbacPermission = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreatePermission) => rbacService.createPermission(data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: rbacKeys.all });
+      toast.success("Permiso creado.");
+    },
+    onError: () => toast.error("No pudimos crear el permiso."),
   });
 };
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const optionalText = (schema: z.ZodString) =>
   z.union([schema, z.literal("")]).optional();
+const rbacKeyPattern = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 
 export const permissionSchema = z.object({
   id: z.string(),
@@ -67,11 +68,22 @@ export const createRoleSchema = z.object({
     .string()
     .min(2, "Minimo 2 caracteres")
     .max(80)
-    .regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/, "Usa formato front-desk o module.role"),
+    .regex(rbacKeyPattern, "Usa formato front-desk o module.role"),
   name: z.string().min(2, "Minimo 2 caracteres").max(120),
   description: optionalText(z.string().max(500)),
   isDefault: z.boolean().optional(),
   permissionKeys: z.array(z.string()).optional(),
+});
+
+export const createPermissionSchema = z.object({
+  key: z
+    .string()
+    .min(3, "Minimo 3 caracteres")
+    .max(120)
+    .regex(rbacKeyPattern, "Usa formato schedules.write"),
+  name: z.string().min(2, "Minimo 2 caracteres").max(120),
+  description: optionalText(z.string().max(500)),
+  moduleKey: optionalText(z.string().max(80).regex(rbacKeyPattern)),
 });
 
 export const updateRoleSchema = z.object({
@@ -86,6 +98,7 @@ export type MemberRoles = z.infer<typeof memberRolesSchema>;
 export type AccessMatrix = z.infer<typeof accessMatrixSchema>;
 export type AccessModule = z.infer<typeof accessModuleSchema>;
 export type CreateRole = z.infer<typeof createRoleSchema>;
+export type CreatePermission = z.infer<typeof createPermissionSchema>;
 export type UpdateRole = z.infer<typeof updateRoleSchema>;
 
 export type RbacRoleQuery = {
@@ -99,4 +112,3 @@ export type RbacRoleQuery = {
 export type RbacPermissionQuery = {
   moduleKey?: string;
 };
-

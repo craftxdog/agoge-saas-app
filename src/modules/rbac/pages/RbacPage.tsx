@@ -25,8 +25,9 @@ import { ScrollPanel } from "@/shared/components/ScrollPanel";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
 import { useMembers } from "@/modules/users/hooks/useUsers";
-import type { Role } from "../schemas/rbac.schema";
+import type { CreatePermission, Permission, Role } from "../schemas/rbac.schema";
 import {
+  useCreateRbacPermission,
   useCreateRbacRole,
   useDeleteRbacRole,
   useMemberRoles,
@@ -45,6 +46,13 @@ const roleDefaults = {
   isDefault: false,
 };
 
+const permissionDefaults = {
+  key: "",
+  name: "",
+  description: "",
+  moduleKey: "",
+};
+
 const withoutEmptyStrings = <T extends Record<string, unknown>>(payload: T) =>
   Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== ""),
@@ -53,9 +61,11 @@ const withoutEmptyStrings = <T extends Record<string, unknown>>(payload: T) =>
 export default function RbacPage() {
   const [activeTab, setActiveTab] = useState("roles");
   const [roleSearch, setRoleSearch] = useState("");
-  const [moduleFilter, setModuleFilter] = useState("");
+  const [roleModuleFilter, setRoleModuleFilter] = useState("");
+  const [permissionModuleFilter, setPermissionModuleFilter] = useState("");
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [roleForm, setRoleForm] = useState(roleDefaults);
+  const [permissionForm, setPermissionForm] = useState(permissionDefaults);
   const [selectedPermissionKeys, setSelectedPermissionKeys] = useState<string[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [memberRoleKeys, setMemberRoleKeys] = useState<string[]>([]);
@@ -71,13 +81,21 @@ export default function RbacPage() {
   }, {
     enabled: activeTab === "roles" || activeTab === "members",
   });
-  const permissions = useRbacPermissions({
-    moduleKey: moduleFilter || undefined,
+  const rolePermissions = useRbacPermissions({
+    moduleKey: roleModuleFilter || undefined,
   }, {
     enabled: activeTab === "roles",
   });
+  const permissionCatalog = useRbacPermissions({
+    moduleKey: permissionModuleFilter || undefined,
+  }, {
+    enabled: activeTab === "permissions",
+  });
   const matrix = useRbacAccessMatrix({
-    enabled: activeTab === "roles" || activeTab === "matrix",
+    enabled:
+      activeTab === "roles" ||
+      activeTab === "permissions" ||
+      activeTab === "matrix",
   });
   const members = useMembers({
     limit: 80,
@@ -90,6 +108,7 @@ export default function RbacPage() {
   const memberRoles = useMemberRoles(selectedMemberId || undefined, {
     enabled: activeTab === "members",
   });
+  const createPermission = useCreateRbacPermission();
   const createRole = useCreateRbacRole();
   const updateRole = useUpdateRbacRole();
   const replacePermissions = useReplaceRolePermissions();
@@ -98,24 +117,18 @@ export default function RbacPage() {
 
   const roleCatalog = matrix.data?.roles ?? roles.data?.items ?? [];
   const listedRoles = roles.data?.items ?? roleCatalog;
-  const availablePermissions = permissions.data ?? [];
+  const availableRolePermissions = rolePermissions.data ?? [];
+  const availableCatalogPermissions = permissionCatalog.data ?? [];
   const isProtectedRole = Boolean(selectedRole?.isSystem);
   const moduleOptions = Array.from(
     new Map(
-      (matrix.data?.modules ?? [])
-        .filter((module) => module.permissions.length > 0)
-        .map((module) => [module.key, module]),
+      (matrix.data?.modules ?? []).map((module) => [module.key, module]),
     ).values(),
   );
 
-  const permissionGroups = availablePermissions.reduce<Record<string, typeof availablePermissions>>(
-    (groups, permission) => {
-      const moduleKey = permission.module?.key ?? "general";
-      groups[moduleKey] = [...(groups[moduleKey] ?? []), permission];
-      return groups;
-    },
-    {},
-  );
+  const rolePermissionGroups = groupPermissionsByModule(availableRolePermissions);
+  const catalogPermissionGroups =
+    groupPermissionsByModule(availableCatalogPermissions);
 
   return (
     <section className="grid gap-8">
@@ -136,6 +149,9 @@ export default function RbacPage() {
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="roles" className="rounded-xl px-4 py-2">
             Roles
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="rounded-xl px-4 py-2">
+            Permisos
           </TabsTrigger>
           <TabsTrigger value="members" className="rounded-xl px-4 py-2">
             Roles por miembro
@@ -254,12 +270,12 @@ export default function RbacPage() {
                   </label>
 
                   <PermissionPicker
-                    moduleFilter={moduleFilter}
+                    moduleFilter={roleModuleFilter}
                     moduleOptions={moduleOptions}
-                    groups={permissionGroups}
+                    groups={rolePermissionGroups}
                     selectedPermissionKeys={selectedPermissionKeys}
                     disabled={isProtectedRole}
-                    onModuleFilterChange={setModuleFilter}
+                    onModuleFilterChange={setRoleModuleFilter}
                     onTogglePermission={(permissionKey) =>
                       setSelectedPermissionKeys((current) =>
                         current.includes(permissionKey)
@@ -431,6 +447,209 @@ export default function RbacPage() {
           </div>
         </TabsContent>
 
+        <TabsContent value="permissions">
+          <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+            <Card className="rounded-[1.75rem]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-primary" />
+                  Crear permiso global
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form
+                  className="grid gap-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    createPermission.mutate(
+                      withoutEmptyStrings(permissionForm) as CreatePermission,
+                      {
+                        onSuccess: () => setPermissionForm(permissionDefaults),
+                      },
+                    );
+                  }}
+                >
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label>Key del permiso</Label>
+                      <Input
+                        className="h-11 rounded-2xl bg-white/70"
+                        placeholder="schedules.write"
+                        value={permissionForm.key}
+                        onChange={(event) =>
+                          setPermissionForm((current) => ({
+                            ...current,
+                            key: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Nombre</Label>
+                      <Input
+                        className="h-11 rounded-2xl bg-white/70"
+                        placeholder="Write schedules"
+                        value={permissionForm.name}
+                        onChange={(event) =>
+                          setPermissionForm((current) => ({
+                            ...current,
+                            name: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Modulo</Label>
+                    <select
+                      className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
+                      value={permissionForm.moduleKey}
+                      onChange={(event) =>
+                        setPermissionForm((current) => ({
+                          ...current,
+                          moduleKey: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Sin modulo</option>
+                      {moduleOptions.map((module) => (
+                        <option key={module.key} value={module.key}>
+                          {module.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Descripcion</Label>
+                    <Textarea
+                      className="min-h-24 rounded-2xl bg-white/70"
+                      placeholder="Describe que habilita este permiso..."
+                      value={permissionForm.description}
+                      onChange={(event) =>
+                        setPermissionForm((current) => ({
+                          ...current,
+                          description: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-900">
+                    La API registra el permiso en el catalogo global y lo replica
+                    al rol admin de sistema para mantener acceso total del tenant.
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="submit"
+                      className="rounded-full"
+                      disabled={createPermission.isPending}
+                    >
+                      Crear permiso
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => setPermissionForm(permissionDefaults)}
+                    >
+                      Limpiar
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-[1.75rem]">
+              <CardHeader>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <KeyRound className="size-5 text-primary" />
+                      Catalogo de permisos
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {availableCatalogPermissions.length} permisos en esta vista
+                    </p>
+                  </div>
+                  <select
+                    className="h-11 rounded-full border bg-white/70 px-4 text-sm"
+                    value={permissionModuleFilter}
+                    onChange={(event) => setPermissionModuleFilter(event.target.value)}
+                  >
+                    <option value="">Todos los modulos</option>
+                    {moduleOptions.map((module) => (
+                      <option key={module.key} value={module.key}>
+                        {module.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollPanel>
+                  <div className="grid gap-4">
+                    {permissionCatalog.isLoading
+                      ? Array.from({ length: 5 }).map((_, index) => (
+                          <RoleCardSkeleton key={index} />
+                        ))
+                      : Object.entries(catalogPermissionGroups).map(
+                          ([moduleKey, permissions]) => (
+                            <div
+                              key={moduleKey}
+                              className="rounded-2xl border bg-white/60 p-4"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                    {permissions[0]?.module?.name ?? moduleKey}
+                                  </p>
+                                  <p className="mt-1 text-sm text-muted-foreground">
+                                    {permissions.length} permisos
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className="rounded-full">
+                                  {moduleKey}
+                                </Badge>
+                              </div>
+
+                              <div className="mt-4 grid gap-3">
+                                {permissions.map((permission) => (
+                                  <div
+                                    key={permission.id}
+                                    className="rounded-2xl border bg-background/80 p-4"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="font-semibold">{permission.name}</p>
+                                      <Badge variant="outline" className="rounded-full">
+                                        {permission.key}
+                                      </Badge>
+                                    </div>
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                      {permission.description ?? "Sin descripcion"}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ),
+                        )}
+
+                    {!permissionCatalog.isLoading &&
+                      availableCatalogPermissions.length === 0 && (
+                        <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                          No hay permisos para este filtro.
+                        </p>
+                      )}
+                  </div>
+                </ScrollPanel>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="members">
           <Card className="rounded-[1.75rem]">
             <CardHeader>
@@ -563,6 +782,14 @@ export default function RbacPage() {
       </Tabs>
     </section>
   );
+}
+
+function groupPermissionsByModule(permissions: Permission[]) {
+  return permissions.reduce<Record<string, Permission[]>>((groups, permission) => {
+    const moduleKey = permission.module?.key ?? "general";
+    groups[moduleKey] = [...(groups[moduleKey] ?? []), permission];
+    return groups;
+  }, {});
 }
 
 function RoleCardSkeleton() {

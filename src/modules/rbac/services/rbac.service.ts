@@ -2,6 +2,7 @@ import { http } from "@/shared/api/http";
 import type { ApiResponse } from "@/shared/api/types";
 import type {
   AccessMatrix,
+  CreatePermission,
   CreateRole,
   MemberRoles,
   Permission,
@@ -31,6 +32,9 @@ const withQuery = (path: string, query?: Record<string, string | number | undefi
 export const rbacService = {
   listPermissions: (query?: RbacPermissionQuery) =>
     http.get<ApiResponse<Permission[]>>(withQuery("/rbac/permissions", query)),
+
+  createPermission: (data: CreatePermission) =>
+    http.post<ApiResponse<Permission>, CreatePermission>("/rbac/permissions", data),
 
   listRoles: (query?: RbacRoleQuery) =>
     http.get<ApiResponse<Role[]>>(withQuery("/rbac/roles", query)),
@@ -65,4 +69,3 @@ export const rbacService = {
   getAccessMatrix: () =>
     http.get<ApiResponse<AccessMatrix>>("/rbac/access-matrix"),
 };
-
