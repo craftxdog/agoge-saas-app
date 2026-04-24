@@ -329,6 +329,7 @@ export default function CompanySettingsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <AssetUploadCard
                   id="logoFile"
+                  kind="logo"
                   label="Logo"
                   description="Imagen principal de la empresa. Recomendado: 1200 x 400 px."
                   imageUrl={logoPreviewUrl}
@@ -337,6 +338,7 @@ export default function CompanySettingsPage() {
                 />
                 <AssetUploadCard
                   id="iconFile"
+                  kind="icon"
                   label="Icono"
                   description="Icono compacto para marca y accesos. Recomendado: 512 x 512 px."
                   imageUrl={iconPreviewUrl}
@@ -396,36 +398,59 @@ export default function CompanySettingsPage() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Vista previa
                 </p>
-                <div className="mt-4 flex items-center gap-3">
-                  <span
-                    className="grid size-12 place-items-center overflow-hidden rounded-2xl text-white"
-                    style={{
-                      backgroundColor: primaryColorPreview,
-                    }}
-                  >
-                    {iconPreviewUrl ? (
-                      <img
-                        src={iconPreviewUrl}
-                        alt={tenant.name}
-                        className="h-full w-full object-contain p-1"
-                      />
-                    ) : (
-                      "A"
-                    )}
-                  </span>
-                  <div>
-                    {logoPreviewUrl ? (
-                      <img
-                        src={logoPreviewUrl}
-                        alt={tenant.name}
-                        className="h-10 max-w-[220px] object-contain object-left"
-                      />
-                    ) : (
-                      <p className="font-semibold">{tenant.name}</p>
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      Identidad visual del tenant
+                <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-[1.6rem] border bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,248,245,0.94))] p-5">
+                    <div className="rounded-[1.4rem] border bg-[radial-gradient(circle_at_center,rgba(79,143,131,0.14),rgba(255,255,255,0.98)_58%)] p-4">
+                      <div className="flex h-20 items-center justify-center">
+                        {logoPreviewUrl ? (
+                          <img
+                            src={logoPreviewUrl}
+                            alt={tenant.name}
+                            className="h-full w-full object-contain object-center"
+                          />
+                        ) : (
+                          <p className="font-display text-3xl font-semibold tracking-tight">
+                            {tenant.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-lg font-semibold tracking-tight">{tenant.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Logo principal para sidebar, cabecera y experiencias del tenant.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.6rem] border bg-white/80 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                      Icono compacto
                     </p>
+                    <div className="mt-4 flex items-center gap-4">
+                      <span
+                        className="grid size-16 place-items-center overflow-hidden rounded-[1.6rem] text-white shadow-sm"
+                        style={{
+                          backgroundColor: primaryColorPreview,
+                        }}
+                      >
+                        {iconPreviewUrl ? (
+                          <img
+                            src={iconPreviewUrl}
+                            alt={tenant.name}
+                            className="h-full w-full object-contain p-1.5"
+                          />
+                        ) : (
+                          "A"
+                        )}
+                      </span>
+                      <div>
+                        <p className="font-semibold">Icono de navegacion</p>
+                        <p className="text-sm text-muted-foreground">
+                          Usado en favicon, chips, header y vista compacta.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1054,6 +1079,7 @@ function ColorField({ id, label, register, error }: FieldProps) {
 
 type AssetUploadCardProps = {
   id: string;
+  kind: "logo" | "icon";
   label: string;
   description: string;
   imageUrl?: string | null;
@@ -1063,6 +1089,7 @@ type AssetUploadCardProps = {
 
 function AssetUploadCard({
   id,
+  kind,
   label,
   description,
   imageUrl,
@@ -1072,9 +1099,18 @@ function AssetUploadCard({
   return (
     <div className="rounded-3xl border bg-white/60 p-4">
       <div className="flex items-center gap-3">
-        <div className="grid size-16 place-items-center overflow-hidden rounded-2xl bg-muted">
+        <div
+          className={
+            "grid place-items-center overflow-hidden rounded-2xl bg-muted" +
+            (kind === "logo" ? " h-16 w-24" : " size-16")
+          }
+        >
           {imageUrl ? (
-            <img src={imageUrl} alt={label} className="h-full w-full object-contain p-1.5" />
+            <img
+              src={imageUrl}
+              alt={label}
+              className="h-full w-full object-contain p-1.5"
+            />
           ) : (
             <ImagePlus className="size-6 text-muted-foreground" />
           )}
@@ -1090,7 +1126,7 @@ function AssetUploadCard({
         className="mt-4 flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed bg-background/70 text-sm font-semibold transition-colors hover:bg-muted"
       >
         {isPending ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
-        {isPending ? "Subiendo..." : "Seleccionar archivo"}
+        {isPending ? "Subiendo..." : "Seleccionar y editar"}
       </Label>
       <Input
         id={id}

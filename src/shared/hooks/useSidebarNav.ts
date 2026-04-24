@@ -7,22 +7,31 @@ export const useSidebarNav = () => {
   const routes = useSidebarRoutes();
   const location = useLocation();
 
+  const isRouteActive = (fullPath: string) => {
+    const normalizedPath = fullPath.replace(/\/+$/, "") || "/";
+    const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+
+    if (normalizedPath === "/app") {
+      return currentPath === "/app";
+    }
+
+    return (
+      currentPath === normalizedPath ||
+      currentPath.startsWith(`${normalizedPath}/`)
+    );
+  };
+
   const mapRoutes = (routes: AppRoute[], parentPath = "/app"): SidebarNavItem[] => {
     return routes.map((route) => {
       const fullPath = route.path
         ? `${parentPath}/${route.path}`.replace(/\/+/g, "/")
         : parentPath;
 
-      const isActive =
-        fullPath === "/"
-          ? location.pathname === "/"
-          : location.pathname.startsWith(fullPath);
-
       return {
         title: route.label,
         url: fullPath,
         icon: route.icon,
-        isActive,
+        isActive: isRouteActive(fullPath),
         items:
           route.children && route.children.length > 0
             ? mapRoutes(route.children, fullPath)

@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 type BrandAssetKind = "logo" | "icon";
+type FitMode = "contain" | "cover";
+type PreviewTone = "soft" | "dark" | "grid";
 
 type CropOffset = {
   x: number;
@@ -81,17 +83,25 @@ export function BrandAssetEditor({
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState<CropOffset>({ x: 0, y: 0 });
+  const [fitMode, setFitMode] = useState<FitMode>(kind === "logo" ? "contain" : "cover");
+  const [previewTone, setPreviewTone] = useState<PreviewTone>("soft");
   const isSvg = file.type === "image/svg+xml";
 
   useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl]);
 
   const baseScale = useMemo(() => {
     if (!naturalSize.width || !naturalSize.height) return 1;
-    return Math.max(
-      preset.previewWidth / naturalSize.width,
-      preset.previewHeight / naturalSize.height,
-    );
-  }, [naturalSize.height, naturalSize.width, preset.previewHeight, preset.previewWidth]);
+    const scaleX = preset.previewWidth / naturalSize.width;
+    const scaleY = preset.previewHeight / naturalSize.height;
+
+    return fitMode === "cover" ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+  }, [
+    fitMode,
+    naturalSize.height,
+    naturalSize.width,
+    preset.previewHeight,
+    preset.previewWidth,
+  ]);
 
   const scaledSize = useMemo(() => {
     const width = naturalSize.width * baseScale * zoom;
@@ -153,7 +163,44 @@ export function BrandAssetEditor({
   const handleReset = () => {
     setZoom(1);
     setOffset({ x: 0, y: 0 });
+    setFitMode(kind === "logo" ? "contain" : "cover");
+    setPreviewTone("soft");
   };
+
+  const alignPreview = (horizontal: "left" | "center" | "right", vertical: "top" | "center" | "bottom") => {
+    setOffset({
+      x:
+        horizontal === "left"
+          ? -maxOffset.x
+          : horizontal === "right"
+            ? maxOffset.x
+            : 0,
+      y:
+        vertical === "top"
+          ? -maxOffset.y
+          : vertical === "bottom"
+            ? maxOffset.y
+            : 0,
+    });
+  };
+
+  const nudge = (deltaX: number, deltaY: number) => {
+    setOffset((current) =>
+      clampOffset({
+        x: current.x + deltaX,
+        y: current.y + deltaY,
+      }),
+    );
+  };
+
+  const previewBackgroundClassName = {
+    soft:
+      "bg-[radial-gradient(circle_at_center,_rgba(79,143,131,0.16),_rgba(255,255,255,0.95)_58%)]",
+    dark:
+      "bg-[linear-gradient(135deg,_rgba(25,32,47,0.98),_rgba(46,59,79,0.94))]",
+    grid:
+      "bg-[linear-gradient(45deg,rgba(233,237,235,0.95)_25%,transparent_25%),linear-gradient(-45deg,rgba(233,237,235,0.95)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,rgba(233,237,235,0.95)_75%),linear-gradient(-45deg,transparent_75%,rgba(233,237,235,0.95)_75%)] bg-[length:22px_22px] bg-[position:0_0,0_11px,11px_-11px,-11px_0px]",
+  } satisfies Record<PreviewTone, string>;
 
   const handleConfirm = async (mode: "crop" | "original") => {
     if (mode === "original") {
@@ -221,7 +268,10 @@ export function BrandAssetEditor({
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="rounded-[1.5rem] border bg-muted/30 p-5">
           <div
-            className="relative mx-auto overflow-hidden rounded-[1.5rem] border border-dashed border-primary/30 bg-[radial-gradient(circle_at_center,_rgba(79,143,131,0.16),_rgba(255,255,255,0.95)_58%)] shadow-inner touch-none"
+            className={cn(
+              "relative mx-auto overflow-hidden rounded-[1.5rem] border border-dashed border-primary/30 shadow-inner touch-none",
+              previewBackgroundClassName[previewTone],
+            )}
             style={{
               width: preset.previewWidth,
               height: preset.previewHeight,
@@ -282,6 +332,105 @@ export function BrandAssetEditor({
             <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
               <span>Contenido ajustado</span>
               <span>{zoom.toFixed(2)}x</span>
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border bg-white/75 p-4">
+            <p className="text-sm font-semibold">Modo de encuadre</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { label: "Contener", value: "contain" },
+                { label: "Cubrir", value: "cover" },
+              ].map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={fitMode === option.value ? "default" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setFitMode(option.value as FitMode)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border bg-white/75 p-4">
+            <p className="text-sm font-semibold">Fondo de previsualizacion</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { label: "Suave", value: "soft" },
+                { label: "Oscuro", value: "dark" },
+                { label: "Grid", value: "grid" },
+              ].map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={previewTone === option.value ? "default" : "outline"}
+                  className="rounded-full"
+                  onClick={() => setPreviewTone(option.value as PreviewTone)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border bg-white/75 p-4">
+            <p className="text-sm font-semibold">Alineacion rapida</p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("left", "top")}>
+                Arriba izq
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("center", "top")}>
+                Arriba
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("right", "top")}>
+                Arriba der
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("left", "center")}>
+                Izquierda
+              </Button>
+              <Button type="button" variant="default" className="rounded-2xl" onClick={() => alignPreview("center", "center")}>
+                Centro
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("right", "center")}>
+                Derecha
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("left", "bottom")}>
+                Abajo izq
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("center", "bottom")}>
+                Abajo
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("right", "bottom")}>
+                Abajo der
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border bg-white/75 p-4">
+            <p className="text-sm font-semibold">Microajustes</p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div />
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => nudge(0, -20)}>
+                Subir
+              </Button>
+              <div />
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => nudge(-20, 0)}>
+                Izq
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => alignPreview("center", "center")}>
+                Reset
+              </Button>
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => nudge(20, 0)}>
+                Der
+              </Button>
+              <div />
+              <Button type="button" variant="outline" className="rounded-2xl" onClick={() => nudge(0, 20)}>
+                Bajar
+              </Button>
+              <div />
             </div>
           </div>
 

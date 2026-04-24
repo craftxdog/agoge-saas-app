@@ -14,17 +14,17 @@ export const AppLayout = () => {
     <SidebarProvider
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
+          "--sidebar-width": "calc(var(--spacing) * 84)",
+          "--header-height": "calc(var(--spacing) * 18)",
         } as CSSProperties
       }
     >
       <AppSidebar variant="inset" />
 
-      <SidebarInset>
+      <SidebarInset className="h-svh overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(79,143,131,0.08),transparent_28%),linear-gradient(180deg,rgba(255,251,244,0.88),rgba(255,255,255,0.96))]">
         <SiteHeader />
 
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto px-6 pb-8 pt-4">
           <Outlet />
         </main>
       </SidebarInset>
