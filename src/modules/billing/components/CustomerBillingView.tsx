@@ -11,6 +11,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import {
+  getBillingNoteLabel,
+  getPaymentLabel,
+  getPaymentMethodDescription,
+  getPaymentMethodLabel,
+  getPaymentStatusLabel,
+  getTransactionStatusLabel,
+} from "../utils/billing-copy";
+import {
   usePaymentMethods,
   usePayments,
 } from "../hooks/useBilling";
@@ -54,13 +62,27 @@ export function CustomerBillingView() {
       sortDirection: "desc",
       limit: 50,
     },
-    { enabled: Boolean(memberId) },
+    {
+      enabled: Boolean(memberId),
+      refetchInterval: 5000,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    },
   );
   const paymentMethods = usePaymentMethods(undefined, {
     enabled: Boolean(memberId),
   });
 
-  const paymentItems = payments.data?.items ?? [];
+  const paymentItems = [...(payments.data?.items ?? [])].sort((left, right) => {
+    const dueDateDiff =
+      new Date(right.dueDate).getTime() - new Date(left.dueDate).getTime();
+
+    if (dueDateDiff !== 0) {
+      return dueDateDiff;
+    }
+
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
   const currency =
     paymentItems[0]?.currency ??
     activeMembership?.organization.defaultCurrency ??
@@ -86,9 +108,10 @@ export function CustomerBillingView() {
     ),
   };
 
-  const nextDuePayment = paymentItems.find(
-    (payment) => !["PAID", "CANCELLED", "REFUNDED"].includes(payment.status),
-  );
+  const nextDuePayment = [...openItems].sort(
+    (left, right) =>
+      new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime(),
+  )[0];
 
   return (
     <section className="grid gap-8">
@@ -163,19 +186,19 @@ export function CustomerBillingView() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold">
-                          {payment.paymentType?.name ?? "Cobro personalizado"}
+                          {getPaymentLabel(payment)}
                         </h3>
                         <Badge variant={statusTone(payment.status)}>
-                          {payment.status}
+                          {getPaymentStatusLabel(payment.status)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Factura: {payment.invoiceNumber ?? "Sin numero"} · vence{" "}
                         {formatDate(payment.dueDate)}
                       </p>
-                      {payment.notes ? (
+                      {getBillingNoteLabel(payment.notes) ? (
                         <p className="mt-3 text-sm text-muted-foreground">
-                          {payment.notes}
+                          {getBillingNoteLabel(payment.notes)}
                         </p>
                       ) : null}
                     </div>
@@ -201,7 +224,7 @@ export function CustomerBillingView() {
                         >
                           <div>
                             <p className="font-medium">
-                              {transaction.paymentMethod?.name ?? "Metodo sin nombre"}
+                              {getPaymentMethodLabel(transaction.paymentMethod)}
                             </p>
                             <p className="text-muted-foreground">
                               {transaction.reference ?? "Sin referencia"} ·{" "}
@@ -213,7 +236,7 @@ export function CustomerBillingView() {
                               {money(parseAmount(transaction.amount), transaction.currency)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {transaction.status}
+                              {getTransactionStatusLabel(transaction.status)}
                             </p>
                           </div>
                         </div>
@@ -247,9 +270,9 @@ export function CustomerBillingView() {
                 <div key={method.id} className="rounded-2xl border bg-white/70 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-semibold">{method.name}</p>
+                      <p className="font-semibold">{getPaymentMethodLabel(method)}</p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {method.description ?? "Metodo habilitado por la organizacion."}
+                        {getPaymentMethodDescription(method)}
                       </p>
                     </div>
                     <Badge variant="outline">

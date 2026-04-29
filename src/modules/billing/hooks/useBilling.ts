@@ -24,6 +24,13 @@ import {
 } from "../schemas/billing.schema";
 import { billingService } from "../services/billing.service";
 
+type BillingQueryOptions = {
+  enabled?: boolean;
+  refetchInterval?: number | false;
+  refetchOnWindowFocus?: boolean;
+  staleTime?: number;
+};
+
 export const billingKeys = {
   all: ["billing"] as const,
   summary: () => [...billingKeys.all, "summary"] as const,
@@ -39,7 +46,7 @@ export const billingKeys = {
     [...billingKeys.all, "transactions", paymentId, query] as const,
 };
 
-export const useBillingSummary = (options?: { enabled?: boolean }) =>
+export const useBillingSummary = (options?: BillingQueryOptions) =>
   useQuery({
     queryKey: billingKeys.summary(),
     enabled: options?.enabled ?? true,
@@ -47,7 +54,9 @@ export const useBillingSummary = (options?: { enabled?: boolean }) =>
       const res = await billingService.getSummary();
       return billingSummarySchema.parse(res.data);
     },
-    refetchOnWindowFocus: false,
+    staleTime: options?.staleTime,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
   });
 
 export const usePaymentTypes = (
@@ -82,7 +91,7 @@ export const usePaymentMethods = (
 
 export const usePayments = (
   query?: PaymentQuery,
-  options?: { enabled?: boolean },
+  options?: BillingQueryOptions,
 ) =>
   useQuery({
     queryKey: billingKeys.payments(query),
@@ -94,9 +103,10 @@ export const usePayments = (
         pagination: res.meta.pagination,
       };
     },
-    staleTime: 1000 * 60 * 2,
+    staleTime: options?.staleTime ?? 1000 * 60 * 2,
     placeholderData: keepPreviousData,
-    refetchOnWindowFocus: false,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
   });
 
 export const usePayment = (paymentId?: string, options?: { enabled?: boolean }) =>

@@ -111,7 +111,7 @@ export function NavUser() {
                 <div className="grid flex-1 text-left text-sm">
                   <span className="truncate font-medium">{user.email}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {activeMembership?.organization.name ?? "Sin tenant activo"}
+                    {activeMembership?.organization.name ?? "Sin organizacion activa"}
                   </span>
                 </div>
               </div>

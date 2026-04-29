@@ -48,7 +48,7 @@ const optionalStringSchema = (schema: z.ZodString) =>
 
 export const loginSchema = z.object({
   email: z.email("Email invalido").toLowerCase().trim(),
-  password: z.string().min(1, "Ingresa tu password"),
+  password: z.string().min(1, "Ingresa tu contrasena"),
   organizationSlug: optionalSlugSchema,
   organizationId: optionalUuidSchema,
   rememberMe: z.boolean().optional(),

@@ -21,6 +21,7 @@ export const useRealtimeQuerySync = () => {
       }
 
       void queryClient.invalidateQueries({ queryKey: [queryKey] });
+      void queryClient.refetchQueries({ queryKey: [queryKey], type: "active" });
     });
   });
 };

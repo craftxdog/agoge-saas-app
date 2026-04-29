@@ -1,5 +1,13 @@
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, LockKeyhole, Mail, PanelsTopLeft } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  PanelsTopLeft,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { FormError } from "@/components/atoms/form-error";
 import { Button } from "@/components/ui/button";
@@ -13,8 +21,6 @@ import {
 import { useLogin } from "@/shared/hooks/useLogin";
 
 export function LoginForm() {
-  const { mutate, isPending } = useLogin();
-
   const form = useForm<LoginFormValues, unknown, LoginSchema>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -24,8 +30,15 @@ export function LoginForm() {
       rememberMe: true,
     },
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const { mutate, isPending } = useLogin({
+    onFieldError: (field, message) => {
+      form.setError(field, { type: "server", message });
+    },
+  });
 
   const onSubmit = (data: LoginSchema) => {
+    form.clearErrors();
     mutate(data);
   };
 
@@ -50,18 +63,26 @@ export function LoginForm() {
 
       <div className="grid gap-2">
         <Label htmlFor="password" className="text-sm font-semibold">
-          Password
+          Contrasena
         </Label>
         <div className="relative">
           <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
-            className="h-12 rounded-2xl bg-white/80 pl-10"
-            placeholder="Tu password seguro"
+            className="h-12 rounded-2xl bg-white/80 pl-10 pr-12"
+            placeholder="Tu contrasena segura"
             {...form.register("password")}
           />
+          <button
+            type="button"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={showPassword ? "Ocultar contrasena" : "Mostrar contrasena"}
+            onClick={() => setShowPassword((value) => !value)}
+          >
+            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
         </div>
         <FormError message={form.formState.errors.password?.message} />
       </div>

@@ -24,14 +24,19 @@ import {
 } from "@/modules/settings/utils/tenant-branding";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useSocket } from "@/shared/hooks/useSocket";
+import { useRealtimeNotifications } from "@/shared/realtime/use-realtime-notifications";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { useNotificationStore } from "@/shared/store/notification.store";
 import { Breadcrumbs } from "./breadcrumbs";
 
 export function SiteHeader() {
   const { activeMembership, permissions, enabledModules } = useAuthStore();
   const { isCustomerPortal, memberId } = useAccessContext();
   const { isConnected, isEnabled } = useSocket();
+  const { formatDateTime } = useRealtimeNotifications();
   const brandingQuery = useTenantBranding();
+  const realtimeNotifications = useNotificationStore((state) => state.items);
+  const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
   const branding =
     brandingQuery.data ?? getStoredTenantBranding(activeMembership?.organization.id);
   const iconUrl = resolveBrandAssetUrl(
@@ -48,8 +53,13 @@ export function SiteHeader() {
   );
 
   const unreadCount = operations.data?.unreadNotifications ?? 0;
+  const unreadRealtimeCount = realtimeNotifications.filter((item) => !item.read).length;
+  const badgeCount = canReadNotifications
+    ? unreadCount + unreadRealtimeCount
+    : unreadRealtimeCount;
   const upcomingExceptions = operations.data?.upcomingExceptions ?? 0;
   const auditEvents = operations.data?.auditEvents ?? 0;
+  const recentRealtimeNotifications = realtimeNotifications.slice(0, 5);
   const alertItems = [
     {
       key: "notifications",
@@ -78,7 +88,7 @@ export function SiteHeader() {
           <SidebarTrigger className="size-10 rounded-xl border border-border/70 bg-white/80 text-foreground shadow-sm" />
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Workspace
+              Espacio de trabajo
             </p>
             <div className="mt-1">
               <Breadcrumbs />
@@ -96,7 +106,7 @@ export function SiteHeader() {
                 <Bell className="size-4" />
                 <span className="hidden text-sm font-medium sm:inline">Notificaciones</span>
                 <span className="ml-1 grid min-w-6 place-items-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-foreground">
-                  {canReadNotifications ? unreadCount : 0}
+                  {badgeCount}
                 </span>
               </Button>
             </DropdownMenuTrigger>
@@ -112,12 +122,16 @@ export function SiteHeader() {
                     <p className="text-sm font-semibold">Centro de notificaciones</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {isCustomerPortal
-                        ? "Estado de tu acceso y sincronizacion en tiempo real."
-                        : "Estado operativo del tenant activo."}
+                        ? "Actividad reciente de tus cobros y sincronizacion en tiempo real."
+                        : "Actividad reciente y estado operativo de la organizacion activa."}
                     </p>
                   </div>
                   <Badge variant="outline" className="rounded-full">
-                    {isEnabled ? (isConnected ? "Realtime activo" : "Reconectando") : "Sin realtime"}
+                    {isEnabled
+                      ? isConnected
+                        ? "Tiempo real activo"
+                        : "Reconectando"
+                      : "Sin tiempo real"}
                   </Badge>
                 </div>
               </DropdownMenuLabel>
@@ -125,17 +139,60 @@ export function SiteHeader() {
               <DropdownMenuSeparator />
 
               <div className="grid gap-2 p-3">
-                {operations.isLoading ? (
+                {canReadNotifications && operations.isLoading && !recentRealtimeNotifications.length ? (
                   Array.from({ length: 3 }).map((_, index) => (
                     <div
                       key={index}
                       className="h-16 animate-pulse rounded-xl border bg-muted/35"
                     />
                   ))
+                ) : recentRealtimeNotifications.length ? (
+                  <>
+                    {recentRealtimeNotifications.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-border/70 bg-card px-3 py-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium">{item.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </div>
+                          {!item.read ? <Badge className="rounded-full">Nuevo</Badge> : null}
+                        </div>
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          {formatDateTime(item.occurredAt)}
+                        </p>
+                      </div>
+                    ))}
+                    {!isCustomerPortal && canReadNotifications && alertItems.length ? (
+                      <div className="grid gap-2 pt-1">
+                        {alertItems.map((item) => (
+                          <div
+                            key={item.key}
+                            className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-3 py-3"
+                          >
+                            <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                              <item.icon className="size-4" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium">{item.label}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Resumen operativo del tenant activo.
+                              </p>
+                            </div>
+                            <Badge className="rounded-full">{item.value}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
                 ) : isCustomerPortal ? (
                   <>
                     <div className="rounded-xl border border-border/70 bg-card px-3 py-3">
-                      <p className="text-sm font-medium">Scope de cliente</p>
+                      <p className="text-sm font-medium">Portal del cliente</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Solo ves modulos y datos asociados a tu membresia activa.
                       </p>
@@ -151,9 +208,9 @@ export function SiteHeader() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {isEnabled
                           ? isConnected
-                            ? "Socket conectado y sincronizando cambios del tenant."
+                            ? "Socket conectado y sincronizando cambios de cobros y horarios."
                             : "Socket habilitado, esperando reconexion."
-                          : "Realtime deshabilitado en esta configuracion."}
+                          : "Tiempo real deshabilitado en esta configuracion."}
                       </p>
                     </div>
                   </>
@@ -170,7 +227,7 @@ export function SiteHeader() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium">{item.label}</p>
                           <p className="text-xs text-muted-foreground">
-                            Valor consolidado desde `analytics/operations`.
+                            Valor consolidado desde analytics/operations.
                           </p>
                         </div>
                         <Badge className="rounded-full">{item.value}</Badge>
@@ -183,7 +240,7 @@ export function SiteHeader() {
                   )
                 ) : (
                   <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                    Este usuario no tiene permiso para leer notificaciones operativas.
+                    No hay actividad nueva para mostrar en este momento.
                   </div>
                 )}
               </div>
@@ -198,9 +255,14 @@ export function SiteHeader() {
                       : "Socket.IO intentando reconectar."
                     : "Socket.IO deshabilitado."}
                 </p>
-                <Button variant="ghost" size="sm" className="rounded-full">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={markAllAsRead}
+                >
                   <CheckCheck className="size-4" />
-                  Revisado
+                  Marcar como revisado
                 </Button>
               </div>
             </DropdownMenuContent>
@@ -223,7 +285,7 @@ export function SiteHeader() {
                 Organizacion activa
               </p>
               <p className="mt-0.5 text-sm font-semibold">
-                {activeMembership?.organization.name ?? "Sin tenant"}
+                {activeMembership?.organization.name ?? "Sin organizacion"}
               </p>
             </div>
           </div>
