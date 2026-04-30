@@ -69,7 +69,7 @@ export function RegisterForm() {
           <div>
             <h2 className="font-semibold">Organizacion</h2>
             <p className="text-sm text-muted-foreground">
-              Crea el tenant principal de tu academia.
+              Crea la organizacion principal de tu academia.
             </p>
           </div>
         </div>
@@ -130,13 +130,13 @@ export function RegisterForm() {
           <Field
             id="lastName"
             label="Apellido"
-            placeholder="Founder"
+            placeholder="Fundador"
             register={form.register("lastName")}
             error={form.formState.errors.lastName?.message}
           />
           <Field
             id="email"
-            label="Email"
+            label="Correo electronico"
             type="email"
             placeholder="fundador@academia.com"
             icon={<Mail className="size-4" />}
@@ -183,7 +183,7 @@ export function RegisterForm() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             id="password"
-            label="Password"
+            label="Contrasena"
             type="password"
             placeholder="SaaS-ready-password-2026!"
             register={form.register("password")}
@@ -191,9 +191,9 @@ export function RegisterForm() {
           />
           <Field
             id="confirmPassword"
-            label="Confirmar password"
+            label="Confirmar contrasena"
             type="password"
-            placeholder="Repite tu password"
+            placeholder="Repite tu contrasena"
             register={form.register("confirmPassword")}
             error={form.formState.errors.confirmPassword?.message}
           />

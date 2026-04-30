@@ -40,15 +40,15 @@ export default function AcceptInvitationPage() {
   const successMessage = useMemo(() => {
     if (!mutation.data?.data) return null;
 
-    return `${mutation.data.data.member.user.firstName} ${mutation.data.data.member.user.lastName} ya pertenece al tenant.`;
+    return `${mutation.data.data.member.user.firstName} ${mutation.data.data.member.user.lastName} ya pertenece a esta organizacion.`;
   }, [mutation.data?.data]);
 
   return (
     <AuthShell
       title="Aceptar invitacion"
-      description="Completa tus datos para activar tu acceso al tenant y entrar al SaaS con tu propia cuenta."
+      description="Completa tus datos para activar tu acceso a la organizacion y entrar al SaaS con tu propia cuenta."
       asideTitle="Invitaciones listas para incorporarte sin friccion."
-      asideDescription="Este flujo usa el endpoint publico de aceptacion de invitaciones y crea o vincula tu cuenta al tenant correspondiente."
+      asideDescription="Este flujo usa el endpoint publico de aceptacion de invitaciones y crea o vincula tu cuenta a la organizacion correspondiente."
       switchLabel="Ya tienes acceso?"
       switchTo="/login"
       switchAction="Inicia sesion"
@@ -105,7 +105,7 @@ export default function AcceptInvitationPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             id="username"
-            label="Username"
+            label="Usuario"
             error={form.formState.errors.username?.message}
           >
             <Input
@@ -117,7 +117,7 @@ export default function AcceptInvitationPage() {
           </Field>
           <Field
             id="password"
-            label="Password"
+            label="Contrasena"
             error={form.formState.errors.password?.message}
           >
             <Input

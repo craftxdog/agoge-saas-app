@@ -16,7 +16,7 @@ export const AppLayout = () => {
     <SidebarProvider
       style={
         {
-          "--sidebar-width": "19rem",
+          "--sidebar-width": "clamp(17rem, 20vw, 19rem)",
           "--header-height": "5.25rem",
         } as CSSProperties
       }
@@ -26,8 +26,10 @@ export const AppLayout = () => {
       <SidebarInset className="h-svh overflow-hidden bg-[linear-gradient(180deg,rgba(252,249,243,0.92),rgba(255,255,255,0.98))]">
         <SiteHeader />
 
-        <main className="flex-1 overflow-auto px-6 pb-8 pt-6">
-          <Outlet />
+        <main className="flex-1 overflow-auto px-4 pb-8 pt-5 sm:px-5 lg:px-6 xl:px-8">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>

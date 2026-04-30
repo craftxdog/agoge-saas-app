@@ -67,7 +67,7 @@ export function BrandMark({ className, compact = false, to = "/" }: BrandMarkPro
             </span>
           )}
           <span className="block truncate text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-            {organizationName ? "Tenant activo" : "Academy SaaS"}
+            {organizationName ? "Organizacion activa" : "Academia SaaS"}
           </span>
         </span>
       )}

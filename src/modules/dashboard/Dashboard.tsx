@@ -14,6 +14,7 @@ import { useMemberSchedules } from "@/modules/schedules/hooks/useSchedules";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
+import { formatSystemLabel } from "@/shared/utils/labels";
 
 const moduleCards = [
   {
@@ -98,7 +99,7 @@ export default function Dashboard() {
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
             Tu usuario pertenece a {memberships.length} organizacion(es). La API
-            puede iniciar una sesion tenant-scoped enviando el slug o id de la
+            puede iniciar una sesion segmentada por organizacion enviando el slug o id de la
             organizacion en el login.
           </p>
         </div>
@@ -109,7 +110,7 @@ export default function Dashboard() {
                 <div>
                   <p className="font-semibold">{membership.organization.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {membership.organization.slug} · {membership.roles.join(", ")}
+                    {membership.organization.slug} · {membership.roles.map((role) => formatSystemLabel(role)).join(", ")}
                   </p>
                 </div>
                 <Button
@@ -227,7 +228,7 @@ export default function Dashboard() {
             <p className="mt-2 text-sm text-muted-foreground">
               El dashboard ya esta filtrando por permisos reales. Si este usuario
               sera `customer`, conviene habilitar solo endpoints de autoservicio
-              para no exponer datos globales del tenant.
+              para no exponer datos globales de la organizacion.
             </p>
           </CardContent>
         </Card>

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
+import { formatSystemLabel } from "@/shared/utils/labels";
 
 export default function ProfilePage() {
   const { user, activeMembership, memberships, permissions, enabledModules } =
@@ -60,11 +61,11 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="grid gap-4">
             <InfoRow label="Email" value={user.email} />
-            <InfoRow label="Usuario" value={user.username ?? "Sin username"} />
-            <InfoRow label="Rol plataforma" value={user.platformRole} />
+            <InfoRow label="Usuario" value={user.username ?? "Sin usuario"} />
+            <InfoRow label="Rol de plataforma" value={formatSystemLabel(user.platformRole)} />
             <InfoRow
-              label="Tenant activo"
-              value={activeMembership?.organization.name ?? "Sin tenant activo"}
+              label="Organizacion activa"
+              value={activeMembership?.organization.name ?? "Sin organizacion activa"}
             />
           </CardContent>
         </Card>
@@ -100,7 +101,7 @@ export default function ProfilePage() {
                       {isCustomer && (
                         <Badge variant="outline" className="rounded-full">
                           <Compass className="size-3" />
-                          Customer portal
+                          Portal de cliente
                         </Badge>
                       )}
                     </div>
@@ -112,7 +113,7 @@ export default function ProfilePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     {membership.roles.map((role) => (
                       <Badge key={role} variant="outline" className="rounded-full">
-                        {role}
+                        {formatSystemLabel(role)}
                       </Badge>
                     ))}
                     {!isActive && (
@@ -188,7 +189,7 @@ function TokenCard({
           <div className="flex flex-wrap gap-2">
             {items.map((item) => (
               <Badge key={item} variant="outline" className="rounded-full">
-                {item}
+                {formatSystemLabel(item)}
               </Badge>
             ))}
           </div>

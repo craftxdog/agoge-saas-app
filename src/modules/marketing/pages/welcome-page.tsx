@@ -23,7 +23,7 @@ const answers = [
   {
     question: "Como se usa?",
     answer:
-      "Creas una organizacion, invitas al equipo, activas modulos y cada usuario ve solo las pantallas permitidas por su rol y tenant.",
+      "Creas una organizacion, invitas al equipo, activas modulos y cada usuario ve solo las pantallas permitidas por su rol y organizacion.",
     icon: UsersRound,
   },
   {
@@ -65,7 +65,7 @@ export default function WelcomePage() {
         </nav>
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" className="rounded-full">
-            <Link to="/login">Login</Link>
+            <Link to="/login">Iniciar sesion</Link>
           </Button>
           <Button asChild className="rounded-full">
             <Link to="/register">Registrar</Link>
@@ -82,7 +82,7 @@ export default function WelcomePage() {
             Gestiona tu academia con claridad, permisos y crecimiento real.
           </h1>
           <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground">
-            Agoge convierte la operacion diaria en una plataforma multi-tenant:
+            Agoge convierte la operacion diaria en una plataforma multi-organizacion:
             una organizacion, varios roles, modulos dinamicos y datos listos
             para tomar decisiones.
           </p>
@@ -111,7 +111,7 @@ export default function WelcomePage() {
             <CardContent className="p-6 sm:p-8">
               <div className="rounded-[1.5rem] bg-primary p-6 text-primary-foreground">
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-primary-foreground/70">
-                  Workspace activo
+                  Espacio de trabajo activo
                 </p>
                 <h2 className="mt-4 font-display text-4xl font-semibold">
                   Agoge Academy
@@ -133,7 +133,7 @@ export default function WelcomePage() {
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                {["Permisos", "Tenants", "Auditoria"].map((item) => (
+                {["Permisos", "Organizaciones", "Auditoria"].map((item) => (
                   <div
                     key={item}
                     className="rounded-2xl border bg-white/70 p-4 text-sm font-semibold"

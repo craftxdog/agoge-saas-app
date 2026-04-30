@@ -64,7 +64,7 @@ export const acceptInvitationResponseSchema = z.object({
 });
 
 export const createMemberSchema = z.object({
-  email: z.email("Email invalido").toLowerCase().trim(),
+  email: z.email("Correo electronico invalido").toLowerCase().trim(),
   username: optionalText(
     z
       .string()
@@ -90,7 +90,7 @@ export const updateMemberSchema = z.object({
 });
 
 export const createInvitationSchema = z.object({
-  email: z.email("Email invalido").toLowerCase().trim(),
+  email: z.email("Correo electronico invalido").toLowerCase().trim(),
   expiresInDays: z.coerce.number().int().min(1).max(30).default(7),
 });
 

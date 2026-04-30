@@ -8,7 +8,7 @@ export default function LoginPage() {
       title="Entra a tu espacio de trabajo"
       description="Accede con tu usuario y, si ya conoces el slug, abre directamente la organizacion correcta."
       asideTitle="Todo tu centro operando desde una sola sesion."
-      asideDescription="Agoge respeta el contexto de cada organizacion: modulos habilitados, permisos, roles y datos siempre se cargan por tenant."
+      asideDescription="Agoge respeta el contexto de cada organizacion: modulos habilitados, permisos, roles y datos siempre se cargan por organizacion."
       switchLabel="Aun no tienes cuenta?"
       switchTo="/register"
       switchAction="Crea tu organizacion"

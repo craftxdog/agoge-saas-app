@@ -47,7 +47,7 @@ const optionalStringSchema = (schema: z.ZodString) =>
     .transform((value) => value || undefined);
 
 export const loginSchema = z.object({
-  email: z.email("Email invalido").toLowerCase().trim(),
+  email: z.email("Correo electronico invalido").toLowerCase().trim(),
   password: z.string().min(1, "Ingresa tu contrasena"),
   organizationSlug: optionalSlugSchema,
   organizationId: optionalUuidSchema,
@@ -69,12 +69,12 @@ export const registerOrganizationSchema = z
       .length(3, "Usa codigo ISO de 3 letras")
       .transform((value) => value.toUpperCase())
       .default("USD"),
-    email: z.email("Email invalido").toLowerCase().trim(),
+    email: z.email("Correo electronico invalido").toLowerCase().trim(),
     username: optionalUsernameSchema,
     firstName: z.string().min(1, "Ingresa tu nombre").max(80).trim(),
     lastName: z.string().min(1, "Ingresa tu apellido").max(80).trim(),
     password: strongPasswordSchema,
-    confirmPassword: z.string().min(1, "Confirma tu password"),
+    confirmPassword: z.string().min(1, "Confirma tu contrasena"),
     phone: optionalStringSchema(z.string().min(7).max(20)),
     documentId: optionalStringSchema(z.string().min(3).max(30)),
   })

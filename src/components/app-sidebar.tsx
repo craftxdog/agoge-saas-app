@@ -16,6 +16,7 @@ import {
 } from "@/modules/settings/utils/tenant-branding";
 import { useSidebarNav } from "@/shared/hooks/useSidebarNav";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { formatSystemLabel } from "@/shared/utils/labels";
 import { Link } from "react-router-dom";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 
@@ -35,6 +36,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     getStoredBrandAssetVersion(activeMembership?.organization.id, "icon"),
   );
   const organizationName = activeMembership?.organization.name ?? "Organizacion";
+  const roleLabel =
+    activeMembership?.roles.length
+      ? activeMembership.roles.map((role) => formatSystemLabel(role)).join(" · ")
+      : "Sin rol activo";
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -58,10 +63,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                {isCustomerPortal ? "Portal cliente" : "Tenant activo"}
+                {isCustomerPortal ? "Portal de cliente" : "Organizacion activa"}
               </p>
               <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
                 {organizationName}
+              </p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {roleLabel}
               </p>
             </div>
           </div>

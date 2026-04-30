@@ -41,6 +41,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { formatSystemLabel } from "@/shared/utils/labels";
 import { useAnalyticsDashboard } from "../hooks/useAnalyticsDashboard";
 import {
   useAnalyticsCatalog,
@@ -207,16 +208,16 @@ export const AnalyticsDashboard = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="overview" className="rounded-xl px-4 py-2">
-            Overview
+            Resumen
           </TabsTrigger>
           <TabsTrigger value="revenue" className="rounded-xl px-4 py-2">
-            Revenue
+            Ingresos
           </TabsTrigger>
           <TabsTrigger value="members" className="rounded-xl px-4 py-2">
-            Members
+            Miembros
           </TabsTrigger>
           <TabsTrigger value="operations" className="rounded-xl px-4 py-2">
-            Operations
+            Operaciones
           </TabsTrigger>
           <TabsTrigger value="catalog" className="rounded-xl px-4 py-2">
             Catalogo
@@ -395,34 +396,34 @@ export const AnalyticsDashboard = () => {
 
         <TabsContent value="revenue">
           <EndpointCard
-            title="Revenue analytics"
+            title="Analitica de ingresos"
             isLoading={revenue.isLoading}
             empty={!revenue.data}
           >
             {revenue.data && (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
-                  label="Invoiced"
+                  label="Facturado"
                   value={money(revenue.data.invoiced.amount, revenue.data.invoiced.currency)}
                   icon={BadgeDollarSign}
                 />
                 <MetricCard
-                  label="Collected"
+                  label="Cobrado"
                   value={money(revenue.data.collected.amount, revenue.data.collected.currency)}
                   icon={CheckCircle2}
                 />
                 <MetricCard
-                  label="Outstanding"
+                  label="Pendiente"
                   value={money(revenue.data.outstanding.amount, revenue.data.outstanding.currency)}
                   icon={BarChart3}
                 />
                 <MetricCard
-                  label="Overdue"
+                  label="Vencido"
                   value={money(revenue.data.overdue.amount, revenue.data.overdue.currency)}
                   icon={AlertTriangle}
                 />
                 <ListMetricCard
-                  title="Status breakdown"
+                  title="Desglose por estado"
                   items={revenue.data.statusBreakdown.map((item) => ({
                     label: item.label,
                     value: item.count,
@@ -442,22 +443,22 @@ export const AnalyticsDashboard = () => {
 
         <TabsContent value="members">
           <EndpointCard
-            title="Member analytics"
+            title="Analitica de miembros"
             isLoading={members.isLoading}
             empty={!members.data}
           >
             {members.data && (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Current members" value={compact(members.data.currentMembers)} icon={UsersRound} />
-                <MetricCard label="Active members" value={compact(members.data.activeMembers)} icon={UsersRound} />
-                <MetricCard label="Invited" value={compact(members.data.invitedMembers)} icon={UsersRound} />
+                <MetricCard label="Miembros actuales" value={compact(members.data.currentMembers)} icon={UsersRound} />
+                <MetricCard label="Miembros activos" value={compact(members.data.activeMembers)} icon={UsersRound} />
+                <MetricCard label="Invitados" value={compact(members.data.invitedMembers)} icon={UsersRound} />
                 <MetricCard
-                  label="Acceptance rate"
+                  label="Tasa de aceptacion"
                   value={`${members.data.invitationAcceptanceRate.percentage.toFixed(1)}%`}
                   icon={CheckCircle2}
                 />
                 <ListMetricCard
-                  title="Status breakdown"
+                  title="Desglose por estado"
                   items={members.data.statusBreakdown.map((item) => ({
                     label: item.label,
                     value: item.count,
@@ -470,31 +471,31 @@ export const AnalyticsDashboard = () => {
 
         <TabsContent value="operations">
           <EndpointCard
-            title="Operational analytics"
+            title="Analitica operativa"
             isLoading={operations.isLoading}
             empty={!operations.data}
           >
             {operations.data && (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <MetricCard label="Locations" value={operations.data.totalLocations} icon={CalendarClock} />
-                <MetricCard label="Active locations" value={operations.data.activeLocations} icon={CalendarClock} />
-                <MetricCard label="Scheduled members" value={operations.data.scheduledMembers} icon={UsersRound} />
+                <MetricCard label="Sedes" value={operations.data.totalLocations} icon={CalendarClock} />
+                <MetricCard label="Sedes activas" value={operations.data.activeLocations} icon={CalendarClock} />
+                <MetricCard label="Miembros agendados" value={operations.data.scheduledMembers} icon={UsersRound} />
                 <MetricCard
-                  label="Coverage"
+                  label="Cobertura"
                   value={`${operations.data.scheduleCoverageRate.percentage.toFixed(1)}%`}
                   icon={CheckCircle2}
                 />
                 <ListMetricCard
-                  title="Top audit actions"
+                  title="Acciones de auditoria"
                   items={operations.data.topAuditActions.map((item) => ({
                     label: item.label,
                     value: item.count,
                   }))}
                 />
                 <ListMetricCard
-                  title="Enabled modules"
+                  title="Modulos habilitados"
                   items={operations.data.enabledModules.map((item) => ({
-                    label: item,
+                    label: formatSystemLabel(item),
                     value: "activo",
                   }))}
                 />
@@ -512,28 +513,28 @@ export const AnalyticsDashboard = () => {
             {catalog.data && (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <ListMetricCard
-                  title="Payment types"
+                  title="Conceptos de cobro"
                   items={catalog.data.paymentTypes.map((item) => ({
                     label: item.label,
                     value: item.key,
                   }))}
                 />
                 <ListMetricCard
-                  title="Payment methods"
+                  title="Metodos de pago"
                   items={catalog.data.paymentMethods.map((item) => ({
                     label: item.label,
                     value: item.key,
                   }))}
                 />
                 <ListMetricCard
-                  title="Locations"
+                  title="Sedes"
                   items={catalog.data.locations.map((item) => ({
                     label: item.label,
                     value: item.key,
                   }))}
                 />
                 <ListMetricCard
-                  title="Currencies y modulos"
+                  title="Monedas y modulos"
                   items={[
                     ...catalog.data.currencies.map((item) => ({
                       label: item,

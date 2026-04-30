@@ -475,9 +475,9 @@ export default function MembersPage() {
                   );
                 })}
               >
-                <MemberField label="Email" register={memberForm.register("email")} />
+                <MemberField label="Correo electronico" register={memberForm.register("email")} />
                 <MemberField
-                  label="Username"
+                  label="Usuario"
                   register={memberForm.register("username")}
                 />
                 <MemberField
@@ -489,7 +489,7 @@ export default function MembersPage() {
                   register={memberForm.register("lastName")}
                 />
                 <MemberField
-                  label="Password"
+                  label="Contrasena"
                   type="password"
                   register={memberForm.register("password")}
                 />

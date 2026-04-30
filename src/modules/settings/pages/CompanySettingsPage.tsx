@@ -56,6 +56,7 @@ import {
   getStoredBrandAssetVersion,
   resolveBrandAssetUrl,
 } from "../utils/tenant-branding";
+import { formatSystemLabel } from "@/shared/utils/labels";
 
 const defaultBranding = {
   primaryColor: "#4f8f83",
@@ -199,14 +200,14 @@ export default function CompanySettingsPage() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
-              Tenant settings
+              Configuracion del tenant
             </p>
             <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight">
               {tenant.name}
             </h1>
             <p className="mt-3 text-muted-foreground">
               Slug: <span className="font-medium text-foreground">{tenant.slug}</span> ·
-              Estado: <span className="font-medium text-foreground">{tenant.status}</span>
+              Estado: <span className="font-medium text-foreground">{formatSystemLabel(tenant.status)}</span>
             </p>
           </div>
 
@@ -896,8 +897,8 @@ function buildPreferencePresets({
     security: [
       {
         key: "requireStrongPasswords",
-        label: "Passwords fuertes",
-        description: "Exige passwords robustos para usuarios del tenant.",
+        label: "Contrasenas fuertes",
+        description: "Exige contrasenas robustas para usuarios de la organizacion.",
         kind: "boolean",
         defaultValue: "true",
       },

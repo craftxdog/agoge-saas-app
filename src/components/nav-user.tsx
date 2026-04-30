@@ -28,6 +28,7 @@ import {
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useLogout } from "@/shared/hooks/useLogout";
 import { useAuthStore } from "@/shared/store/auth.store";
+import { formatSystemLabel } from "@/shared/utils/labels";
 import { Link } from "react-router-dom";
 
 export function NavUser() {
@@ -39,7 +40,10 @@ export function NavUser() {
   if (!user) return null;
 
   const initials = `${user.firstName?.[0] ?? user.email[0]}${user.lastName?.[0] ?? ""}`.toUpperCase();
-  const roleLabel = activeMembership?.roles.join(", ") || user.platformRole;
+  const roleLabel =
+    activeMembership?.roles.length
+      ? activeMembership.roles.map((role) => formatSystemLabel(role)).join(", ")
+      : formatSystemLabel(user.platformRole);
   const menuItems = [
     {
       to: "/app/profile",
