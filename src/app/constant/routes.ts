@@ -1,5 +1,6 @@
 import type { AppRoute } from "@/shared/types/AppRoute.type";
 import {
+  IconBell,
   IconCalendar,
   IconChartBar,
   IconCreditCard,
@@ -53,6 +54,15 @@ export const appRoutes: AppRoute[] = [
     module: "schedules",
     permissions: ["schedules.read"],
     allowCustomerPortal: true,
+    showInSidebar: true,
+  },
+  {
+    label: "Notificaciones",
+    path: "notifications",
+    icon: IconBell,
+    module: "notifications",
+    permissions: ["notifications.read"],
+    allowCustomerPortal: false,
     showInSidebar: true,
   },
   {

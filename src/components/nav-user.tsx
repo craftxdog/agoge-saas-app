@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  IconBell,
   IconBuildingCommunity,
   IconCreditCard,
   IconDotsVertical,
@@ -33,7 +34,7 @@ import { Link } from "react-router-dom";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
-  const { user, activeMembership } = useAuthStore();
+  const { user, activeMembership, enabledModules, permissions } = useAuthStore();
   const { isCustomerPortal } = useAccessContext();
   const logoutMutation = useLogout();
 
@@ -56,6 +57,15 @@ export function NavUser() {
       label: isCustomerPortal ? "Mis cobros" : "Cobros",
       icon: IconCreditCard,
       visible: true,
+    },
+    {
+      to: "/app/notifications",
+      label: "Notificaciones",
+      icon: IconBell,
+      visible:
+        !isCustomerPortal &&
+        enabledModules.includes("notifications") &&
+        permissions.includes("notifications.read"),
     },
     {
       to: "/app/settings",

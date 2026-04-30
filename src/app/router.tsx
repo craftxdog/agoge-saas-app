@@ -15,6 +15,7 @@ import RbacPage from "@/modules/rbac/pages/RbacPage";
 import SchedulesPage from "@/modules/schedules/pages/SchedulesPage";
 import BillingPage from "@/modules/billing/pages/BillingPage";
 import AuditPage from "@/modules/audit/pages/AuditPage";
+import NotificationsPage from "@/modules/notifications/pages/NotificationsPage";
 import ErrorPage from "@/shared/pages/error-page";
 import NotFoundPage from "@/shared/pages/not-found";
 
@@ -103,6 +104,19 @@ export const AppRouter = createBrowserRouter([
             requiredPermissions={["schedules.read"]}
           >
             <SchedulesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "notifications",
+        element: (
+          <ProtectedRoute
+            requireTenant
+            requiredModules={["notifications"]}
+            requiredPermissions={["notifications.read"]}
+            allowCustomerPortal={false}
+          >
+            <NotificationsPage />
           </ProtectedRoute>
         ),
       },

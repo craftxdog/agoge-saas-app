@@ -3,23 +3,32 @@ import {
   Building2,
   CalendarClock,
   CheckCheck,
+  ChevronsUpDown,
   Layers3,
   ShieldCheck,
   Sparkles,
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAnalyticsOperations } from "@/modules/analytics/hooks/useAnalyticsResources";
+import {
+  useMarkAllNotificationsAsRead,
+  useNotificationSummary,
+} from "@/modules/notifications/hooks/useNotifications";
+import { getNotificationTitle } from "@/modules/notifications/utils/notification-copy";
 import { useTenantBranding } from "@/modules/settings/hooks/useTenantBranding";
 import {
   getStoredBrandAssetVersion,
@@ -27,6 +36,7 @@ import {
   resolveBrandAssetUrl,
 } from "@/modules/settings/utils/tenant-branding";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
+import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
 import { useSocket } from "@/shared/hooks/useSocket";
 import { useRealtimeNotifications } from "@/shared/realtime/use-realtime-notifications";
 import { useAuthStore } from "@/shared/store/auth.store";
@@ -59,66 +69,111 @@ const getRealtimeBadge = (isEnabled: boolean, isConnected: boolean) => {
 };
 
 const getNotificationDataMessage = (
-  canReadNotifications: boolean,
-  hasRealtimeItems: boolean,
+  canReadInbox: boolean,
+  canReadAnalytics: boolean,
+  isCustomerPortal: boolean,
   isEnabled: boolean,
+  hasSummaryError: boolean,
   hasOperationsError: boolean,
 ) => {
-  if (hasOperationsError) {
-    return "No pudimos leer analytics/operations desde la API. La bandeja solo mostrara eventos realtime que realmente lleguen al frontend.";
+  if (canReadInbox && hasSummaryError) {
+    return "No pudimos leer /notifications/summary desde la API. Revisa si el modulo notifications esta habilitado y si la membresia tiene notifications.read.";
   }
 
-  if (!isEnabled && !hasRealtimeItems) {
-    return "El tiempo real esta apagado. Sin Socket.IO y sin resumen operativo de analytics, la bandeja quedara vacia.";
+  if (!canReadInbox && canReadAnalytics && hasOperationsError) {
+    return "No pudimos leer analytics/operations desde la API. Solo veras actividad local que llegue por tiempo real.";
   }
 
-  if (!canReadNotifications && !hasRealtimeItems) {
-    return "Esta vista depende de eventos en tiempo real para mostrar actividad reciente.";
+  if (canReadInbox) {
+    return "La campana usa /notifications/summary como fuente principal y Socket.IO para refrescar el inbox compartido.";
   }
 
-  return "La bandeja mezcla resumen operativo de analytics y eventos realtime de cobros u horarios.";
+  if (canReadAnalytics) {
+    return "Este tenant aun esta mostrando el resumen operativo desde analytics/operations como respaldo del inbox.";
+  }
+
+  if (!isEnabled && !isCustomerPortal) {
+    return "El tiempo real esta apagado y este perfil no tiene inbox operativo disponible.";
+  }
+
+  if (isCustomerPortal) {
+    return "Esta vista depende de eventos realtime asociados a tu membresia activa.";
+  }
+
+  return "Solo se mostraran eventos locales que realmente entren por Socket.IO.";
 };
 
 export function SiteHeader() {
-  const { activeMembership, permissions, enabledModules } = useAuthStore();
+  const { activeMembership, memberships, permissions, enabledModules } = useAuthStore();
   const { isCustomerPortal, memberId } = useAccessContext();
   const { isConnected, isEnabled } = useSocket();
   const { formatDateTime } = useRealtimeNotifications();
+  const switchOrganization = useSwitchOrganization();
   const brandingQuery = useTenantBranding();
   const realtimeNotifications = useNotificationStore((state) => state.items);
   const markAllAsRead = useNotificationStore((state) => state.markAllAsRead);
+  const markAllInboxAsRead = useMarkAllNotificationsAsRead();
   const branding =
     brandingQuery.data ?? getStoredTenantBranding(activeMembership?.organization.id);
   const iconUrl = resolveBrandAssetUrl(
     branding?.iconUrl,
     getStoredBrandAssetVersion(activeMembership?.organization.id, "icon"),
   );
-  const canReadNotifications =
+  const canReadInbox =
+    !isCustomerPortal &&
+    permissions.includes("notifications.read") &&
+    enabledModules.includes("notifications");
+  const canReadAnalyticsOperations =
     !isCustomerPortal &&
     permissions.includes("analytics.read") &&
     enabledModules.includes("analytics");
+  const notificationSummary = useNotificationSummary({ enabled: canReadInbox });
   const operations = useAnalyticsOperations(
     { groupBy: "week" },
-    { enabled: canReadNotifications },
+    { enabled: canReadAnalyticsOperations },
   );
 
-  const unreadCount = operations.data?.unreadNotifications ?? 0;
+  const unreadCount = canReadInbox
+    ? notificationSummary.data?.unreadCount ?? 0
+    : canReadAnalyticsOperations
+      ? operations.data?.unreadNotifications ?? 0
+      : 0;
   const unreadRealtimeCount = realtimeNotifications.filter((item) => !item.read).length;
-  const badgeCount = canReadNotifications
-    ? unreadCount + unreadRealtimeCount
+  const badgeCount = canReadInbox || canReadAnalyticsOperations
+    ? unreadCount
     : unreadRealtimeCount;
   const upcomingExceptions = operations.data?.upcomingExceptions ?? 0;
   const auditEvents = operations.data?.auditEvents ?? 0;
   const recentRealtimeNotifications = realtimeNotifications.slice(0, 5);
+  const recentNotifications = canReadInbox
+    ? (notificationSummary.data?.recent ?? []).map((item) => ({
+        id: item.id,
+        title: getNotificationTitle(item),
+        description: item.message,
+        occurredAt: item.createdAt,
+        read: item.isRead,
+      }))
+    : canReadAnalyticsOperations
+      ? (operations.data?.recentNotifications ?? []).map((item) => ({
+          id: item.id,
+          title: getNotificationTitle(item),
+          description: item.message,
+          occurredAt: item.createdAt,
+          read: item.isRead,
+        }))
+      : recentRealtimeNotifications;
   const realtimeStatus = getRealtimeBadge(isEnabled, isConnected);
+  const hasMultipleMemberships = memberships.length > 1;
   const roleLabel =
     activeMembership?.roles?.length
       ? activeMembership.roles.map((role) => formatSystemLabel(role)).join(" · ")
       : "Sin rol activo";
   const notificationDataMessage = getNotificationDataMessage(
-    canReadNotifications,
-    recentRealtimeNotifications.length > 0,
+    canReadInbox,
+    canReadAnalyticsOperations,
+    isCustomerPortal,
     isEnabled,
+    notificationSummary.isError,
     operations.isError,
   );
   const headerPills = [
@@ -144,7 +199,17 @@ export function SiteHeader() {
       key: "fuente-notificaciones",
       icon: Bell,
       label: "Bandeja",
-      value: canReadNotifications ? "Analytics + realtime" : "Realtime",
+      value: canReadInbox
+        ? "Inbox compartido"
+        : canReadAnalyticsOperations
+          ? "Analytics operativo"
+          : "Realtime local",
+    },
+    {
+      key: "sedes",
+      icon: Building2,
+      label: "Sedes",
+      value: `${memberships.length} disponibles`,
     },
   ];
   const alertItems = [
@@ -153,7 +218,9 @@ export function SiteHeader() {
       label: "Notificaciones sin leer",
       value: unreadCount,
       icon: Bell,
-      helper: "Conteo resumido por analytics/operations.",
+      helper: canReadInbox
+        ? "Conteo real del inbox compartido."
+        : "Conteo resumido por analytics/operations.",
     },
     {
       key: "exceptions",
@@ -169,7 +236,7 @@ export function SiteHeader() {
       icon: ShieldCheck,
       helper: "Actividad operativa consolidada.",
     },
-  ].filter((item) => item.value > 0);
+  ].filter((item) => canReadAnalyticsOperations && item.value > 0);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/70 bg-background/82 backdrop-blur-xl">
@@ -202,6 +269,99 @@ export function SiteHeader() {
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end xl:w-auto xl:max-w-[42rem] xl:flex-nowrap">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-xl border border-border/70 bg-white/82 px-3 py-2.5 shadow-sm sm:max-w-[320px]">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/70 bg-muted/30">
+                  {iconUrl ? (
+                    <img
+                      src={iconUrl}
+                      alt={activeMembership?.organization.name ?? "Organizacion"}
+                      className="h-full w-full object-contain p-1.5"
+                    />
+                  ) : (
+                    <Building2 className="size-4 text-primary" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                    Organizacion activa
+                  </p>
+                  <p className="mt-0.5 truncate text-sm font-semibold">
+                    {activeMembership?.organization.name ?? "Sin organizacion"}
+                  </p>
+                </div>
+              </div>
+
+              {hasMultipleMemberships ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-10 w-full justify-between rounded-xl border-border/70 bg-background/80"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Building2 className="size-4" />
+                        Cambiar sede
+                      </span>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {memberships.length} opciones
+                        <ChevronsUpDown className="size-4" />
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={10}
+                    className="w-[min(24rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border/70 p-0 shadow-[0_24px_60px_rgba(30,44,38,0.14)]"
+                  >
+                    <DropdownMenuLabel className="px-4 py-4">
+                      <p className="text-sm font-semibold">Cambiar organizacion activa</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        Este cambio renueva tokens, permisos, modulos y contexto realtime para la sede seleccionada.
+                      </p>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={activeMembership?.organization.id ?? ""}
+                      onValueChange={(organizationId) => {
+                        if (
+                          organizationId &&
+                          organizationId !== activeMembership?.organization.id
+                        ) {
+                          switchOrganization.mutate(organizationId);
+                        }
+                      }}
+                    >
+                      <div className="grid gap-1 p-2">
+                        {memberships.map((membership) => (
+                          <DropdownMenuRadioItem
+                            key={membership.id}
+                            value={membership.organization.id}
+                            disabled={switchOrganization.isPending}
+                            className="rounded-xl py-3"
+                          >
+                            <div className="grid gap-0.5">
+                              <span className="font-medium">
+                                {membership.organization.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {membership.organization.slug} ·{" "}
+                                {membership.roles.map((role) => formatSystemLabel(role)).join(", ")}
+                              </span>
+                            </div>
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </div>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Solo tienes una sede disponible en este momento.
+                </p>
+              )}
+            </div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -240,11 +400,17 @@ export function SiteHeader() {
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Badge variant="outline" className="rounded-full">
-                      API {unreadCount}
+                      {canReadInbox
+                        ? `Inbox ${unreadCount}`
+                        : canReadAnalyticsOperations
+                          ? `Analytics ${unreadCount}`
+                          : `Realtime ${unreadRealtimeCount}`}
                     </Badge>
-                    <Badge variant="outline" className="rounded-full">
-                      Realtime {unreadRealtimeCount}
-                    </Badge>
+                    {isCustomerPortal ? (
+                      <Badge variant="outline" className="rounded-full">
+                        Miembro {memberId ?? "sin contexto"}
+                      </Badge>
+                    ) : null}
                   </div>
                 </DropdownMenuLabel>
 
@@ -258,22 +424,29 @@ export function SiteHeader() {
                     <p className="mt-1 text-sm text-foreground">{notificationDataMessage}</p>
                   </div>
 
-                  {operations.isError ? (
+                  {canReadInbox && notificationSummary.isError ? (
+                    <div className="rounded-xl border border-dashed border-amber-300/70 bg-amber-50/80 px-3 py-3 text-sm text-amber-950">
+                      El backend ya expone `/notifications/summary` y `/notifications`, pero esta membresia no pudo leer el resumen del inbox. Revisa modulo, permisos o sesion tenant-scoped.
+                    </div>
+                  ) : null}
+
+                  {!canReadInbox && canReadAnalyticsOperations && operations.isError ? (
                     <div className="rounded-xl border border-dashed border-amber-300/70 bg-amber-50/80 px-3 py-3 text-sm text-amber-950">
                       El frontend ya consulta `analytics/operations`, pero si la API no expone ese endpoint o no envía `unreadNotifications`, esta campana no podra mostrar el resumen historico.
                     </div>
                   ) : null}
 
-                  {canReadNotifications && operations.isLoading && !recentRealtimeNotifications.length ? (
+                  {(canReadInbox ? notificationSummary.isLoading : canReadAnalyticsOperations ? operations.isLoading : false) &&
+                  !recentNotifications.length ? (
                     Array.from({ length: 3 }).map((_, index) => (
                       <div
                         key={index}
                         className="h-16 animate-pulse rounded-xl border bg-muted/35"
                       />
                     ))
-                  ) : recentRealtimeNotifications.length ? (
+                  ) : recentNotifications.length ? (
                     <>
-                      {recentRealtimeNotifications.map((item) => (
+                      {recentNotifications.map((item) => (
                         <div
                           key={item.id}
                           className="rounded-xl border border-border/70 bg-card px-3 py-3"
@@ -295,7 +468,7 @@ export function SiteHeader() {
                     </>
                   ) : null}
 
-                  {!isCustomerPortal && canReadNotifications && alertItems.length ? (
+                  {!isCustomerPortal && canReadAnalyticsOperations && alertItems.length ? (
                     <div className="grid gap-2 pt-1">
                       {alertItems.map((item) => (
                         <div
@@ -317,8 +490,8 @@ export function SiteHeader() {
                     </div>
                   ) : null}
 
-                  {!recentRealtimeNotifications.length &&
-                  (!canReadNotifications || !alertItems.length) ? (
+                  {!recentNotifications.length &&
+                  (!canReadAnalyticsOperations || !alertItems.length) ? (
                     isCustomerPortal ? (
                       <>
                         <div className="rounded-xl border border-border/70 bg-card px-3 py-3">
@@ -352,41 +525,39 @@ export function SiteHeader() {
                         : "Socket.IO intentando reconectar."
                       : "Socket.IO deshabilitado."}
                   </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-full"
-                    disabled={!unreadRealtimeCount}
-                    onClick={markAllAsRead}
-                  >
-                    <CheckCheck className="size-4" />
-                    Marcar eventos locales
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canReadInbox ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-full"
+                          disabled={!unreadCount || markAllInboxAsRead.isPending}
+                          onClick={() => markAllInboxAsRead.mutate()}
+                        >
+                          <CheckCheck className="size-4" />
+                          Marcar todo como leido
+                        </Button>
+                        <Button asChild variant="outline" size="sm" className="rounded-full">
+                          <Link to="/app/notifications">Abrir bandeja</Link>
+                        </Button>
+                      </>
+                    ) : isCustomerPortal || !canReadAnalyticsOperations ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full"
+                        disabled={!unreadRealtimeCount}
+                        onClick={markAllAsRead}
+                      >
+                        <CheckCheck className="size-4" />
+                        Marcar eventos locales
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border/70 bg-white/82 px-3 py-2.5 shadow-sm sm:max-w-[320px]">
-              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/70 bg-muted/30">
-                {iconUrl ? (
-                  <img
-                    src={iconUrl}
-                    alt={activeMembership?.organization.name ?? "Organizacion"}
-                    className="h-full w-full object-contain p-1.5"
-                  />
-                ) : (
-                  <Building2 className="size-4 text-primary" />
-                )}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Organizacion activa
-                </p>
-                <p className="mt-0.5 truncate text-sm font-semibold">
-                  {activeMembership?.organization.name ?? "Sin organizacion"}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 

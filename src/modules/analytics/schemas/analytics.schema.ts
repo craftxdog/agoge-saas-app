@@ -78,6 +78,18 @@ export const analyticsOperationsSchema = z.object({
   enabledModulesCount: z.number(),
   enabledModules: z.array(z.string()),
   topAuditActions: z.array(dimensionCountSchema),
+  recentNotifications: z
+    .array(
+      z.object({
+        id: z.string(),
+        type: z.string(),
+        title: z.string(),
+        message: z.string(),
+        isRead: z.boolean(),
+        createdAt: z.string(),
+      }),
+    )
+    .default([]),
 });
 
 export const overviewCardSchema = z.object({

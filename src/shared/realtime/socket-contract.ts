@@ -12,6 +12,7 @@ export type RealtimeQueryKeyRoot =
   | "analytics"
   | "audit"
   | "billing"
+  | "notifications"
   | "rbac"
   | "schedules"
   | "settings"
@@ -83,6 +84,8 @@ const realtimeInvalidateRootMap: Record<string, RealtimeQueryKeyRoot> = {
   "billing.payment-transactions": "billing",
   "billing.payment-types": "billing",
   "billing.payments": "billing",
+  "notifications.inbox": "notifications",
+  "notifications.summary": "notifications",
   "rbac.access-matrix": "rbac",
   "rbac.member-roles": "rbac",
   "rbac.roles": "rbac",
