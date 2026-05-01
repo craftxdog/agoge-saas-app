@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
 import { cn } from "@/lib/utils";
 
-type MemberOption = {
+export type MemberOption = {
   id: string;
   status: string;
   phone?: string | null;
@@ -21,6 +21,7 @@ type MemberOption = {
 type MemberLookupFieldProps = {
   search: string;
   selectedMemberId: string;
+  selectedMember?: MemberOption | null;
   members: MemberOption[];
   isLoading?: boolean;
   onSearchChange: (value: string) => void;
@@ -30,13 +31,16 @@ type MemberLookupFieldProps = {
 export function MemberLookupField({
   search,
   selectedMemberId,
+  selectedMember: selectedMemberProp,
   members,
   isLoading = false,
   onSearchChange,
   onSelect,
 }: MemberLookupFieldProps) {
   const selectedMember =
-    members.find((member) => member.id === selectedMemberId) ?? null;
+    selectedMemberProp ??
+    members.find((member) => member.id === selectedMemberId) ??
+    null;
 
   return (
     <div className="grid gap-3">
@@ -116,7 +120,7 @@ export function MemberLookupField({
                 );
               })}
 
-          {!isLoading && !members.length ? (
+          {!isLoading && !members.length && !selectedMember ? (
             <div className="rounded-[1rem] border border-dashed p-4 text-sm text-muted-foreground">
               No encontramos miembros con ese criterio.
             </div>

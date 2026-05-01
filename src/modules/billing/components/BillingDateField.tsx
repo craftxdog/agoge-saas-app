@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/popover";
 
 const formatDate = (value: string) => {
+  if (!value) return "Selecciona una fecha";
+
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return "Selecciona una fecha";
 
@@ -18,8 +20,10 @@ const formatDate = (value: string) => {
 };
 
 const getMonthLabel = (value: string) => {
+  if (!value) return "Sin periodo detectado";
+
   const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) return "Sin periodo detectado";
 
   return new Intl.DateTimeFormat("es-NI", {
     month: "long",
@@ -101,6 +105,16 @@ export function BillingDateField({
                   {option.label}
                 </Button>
               ))}
+
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="rounded-full"
+                onClick={() => onChange("")}
+              >
+                Limpiar
+              </Button>
             </div>
           </div>
         </PopoverContent>

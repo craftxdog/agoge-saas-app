@@ -19,7 +19,7 @@ hacia una UI mas limpia, compacta y orientada a decisiones de negocio.
 ### Centro de notificaciones
 
 - El icono ahora muestra solo pendientes reales.
-- Al abrir el centro, las alertas se consideran vistas para el badge visual.
+- Abrir la campana ya no limpia ni oculta las novedades por si solo.
 - La lista visible muestra solo notificaciones pendientes o nuevas.
 - Cuando ya no hay pendientes, el panel muestra el mensaje:
   `No tienes notificaciones recientes.`
@@ -33,9 +33,13 @@ hacia una UI mas limpia, compacta y orientada a decisiones de negocio.
 
 - La fecha de vencimiento ahora usa un campo mas guiado con popover tipo
   shadcn y acciones rapidas.
+- El calendario soporta `Limpiar` sin romper la pagina cuando la fecha queda
+  vacia temporalmente.
 - `periodMonth` y `periodYear` se sincronizan automaticamente desde la fecha.
 - La seleccion de miembro paso de `select` plano a una busqueda guiada con
   confirmacion visual del cliente seleccionado.
+- El miembro seleccionado se conserva visualmente aunque la lista filtrada ya
+  no lo devuelva, evitando el falso mensaje de "No encontramos miembros".
 - Se agrego busqueda local en la lista de cobros.
 - Se agrego un flujo de `anular cobro` para errores operativos:
   - no borra el registro
@@ -90,6 +94,9 @@ no van a entrar por realtime aunque el frontend ya soporte ese flujo.
 - `src/components/nav-user.tsx`
 - `src/components/organisms/header-notification-center.tsx`
 - `src/components/organisms/header-organization-switcher.tsx`
+- `src/modules/billing/components/BillingDateField.tsx`
+- `src/modules/billing/components/MemberLookupField.tsx`
+- `src/modules/billing/pages/BillingPage.tsx`
 - `src/modules/dashboard/Dashboard.tsx`
 - `src/modules/settings/pages/CompanySettingsPage.tsx`
 - `src/modules/notifications/hooks/useNotifications.ts`

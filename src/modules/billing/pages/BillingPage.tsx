@@ -43,7 +43,10 @@ import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
 import { useMembers } from "@/modules/users/hooks/useUsers";
 import { BillingDateField } from "../components/BillingDateField";
 import { CustomerBillingView } from "../components/CustomerBillingView";
-import { MemberLookupField } from "../components/MemberLookupField";
+import {
+  MemberLookupField,
+  type MemberOption,
+} from "../components/MemberLookupField";
 import {
   getPaymentLabel,
   getPaymentStatusLabel,
@@ -95,6 +98,23 @@ const getBillingPeriodFromDate = (dateValue: string) => {
 };
 
 const currentPeriod = getBillingPeriodFromDate(today);
+
+const parseBillingDate = (dateValue: string) => {
+  if (!dateValue) return null;
+
+  const date = new Date(`${dateValue}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getBillingPeriodLabel = (dateValue: string) => {
+  const date = parseBillingDate(dateValue);
+  if (!date) return "Sin periodo seleccionado";
+
+  return new Intl.DateTimeFormat("es-NI", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
 
 const typeDefaults: CreatePaymentType = {
   key: "",
@@ -150,6 +170,7 @@ export default function BillingPage() {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | undefined>();
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
   const [paymentForm, setPaymentForm] = useState(paymentDefaults);
+  const [selectedMemberPreview, setSelectedMemberPreview] = useState<MemberOption | null>(null);
   const [typeForm, setTypeForm] = useState(typeDefaults);
   const [methodForm, setMethodForm] = useState(methodDefaults);
   const [transactionForm, setTransactionForm] = useState(transactionDefaults);
@@ -215,7 +236,9 @@ export default function BillingPage() {
   const selectedPayment =
     paymentDetail.data ?? payments.data?.items.find((payment) => payment.id === selectedPaymentId);
   const selectedMember =
-    memberOptions.find((member) => member.id === paymentForm.memberId) ?? null;
+    selectedMemberPreview ??
+    memberOptions.find((member) => member.id === paymentForm.memberId) ??
+    null;
   const visiblePayments = (payments.data?.items ?? []).filter((payment) => {
     const search = paymentSearch.trim().toLowerCase();
 
@@ -312,6 +335,7 @@ export default function BillingPage() {
                     createPayment.mutate(clean(paymentForm) as CreatePayment, {
                       onSuccess: () => {
                         setPaymentForm(paymentDefaults);
+                        setSelectedMemberPreview(null);
                         setMemberSearch("");
                       },
                     });
@@ -320,6 +344,7 @@ export default function BillingPage() {
                   <MemberLookupField
                     search={memberSearch}
                     selectedMemberId={paymentForm.memberId}
+                    selectedMember={selectedMember}
                     members={memberOptions}
                     isLoading={members.isLoading}
                     onSearchChange={setMemberSearch}
@@ -327,6 +352,7 @@ export default function BillingPage() {
                       const member = memberOptions.find((item) => item.id === value);
                       setPaymentForm((current) => ({ ...current, memberId: value }));
                       if (member) {
+                        setSelectedMemberPreview(member);
                         setMemberSearch(
                           `${member.user.firstName} ${member.user.lastName}`.trim(),
                         );
@@ -397,13 +423,12 @@ export default function BillingPage() {
                         Periodo contable
                       </p>
                       <p className="mt-2 text-lg font-semibold">
-                        {new Intl.DateTimeFormat("es-NI", {
-                          month: "long",
-                          year: "numeric",
-                        }).format(new Date(`${paymentForm.dueDate}T00:00:00`))}
+                        {getBillingPeriodLabel(paymentForm.dueDate)}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Se sincroniza automaticamente desde la fecha elegida.
+                        {paymentForm.dueDate
+                          ? "Se sincroniza automaticamente desde la fecha elegida."
+                          : "Selecciona una fecha para sincronizar el periodo automaticamente."}
                       </p>
                     </div>
                   </div>
@@ -430,7 +455,12 @@ export default function BillingPage() {
                   />
                   <Button
                     className="w-fit rounded-full"
-                    disabled={!canWriteBilling || createPayment.isPending}
+                    disabled={
+                      !canWriteBilling ||
+                      createPayment.isPending ||
+                      !paymentForm.memberId ||
+                      !parseBillingDate(paymentForm.dueDate)
+                    }
                   >
                     {createPayment.isPending ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -684,7 +714,8 @@ export default function BillingPage() {
                       disabled={
                         !canWriteBilling ||
                         !selectedPaymentId ||
-                        updatePayment.isPending
+                        updatePayment.isPending ||
+                        !parseBillingDate(paymentDueDateDraft)
                       }
                       onClick={() =>
                         updatePayment.mutate({

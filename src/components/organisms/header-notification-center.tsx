@@ -1,5 +1,5 @@
 import { Bell, CheckCheck, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,59 +24,43 @@ import { useRealtimeNotifications } from "@/shared/realtime/use-realtime-notific
 import { useAuthStore } from "@/shared/store/auth.store";
 import { useNotificationStore } from "@/shared/store/notification.store";
 
-type NotificationPreview = {
-  id: string;
-  title: string;
-  description: string;
-  occurredAt: string;
-  read: boolean;
-};
+const LOCAL_READ_STORAGE_PREFIX = "agoge:notifications:local-read:";
 
-const SEEN_STORAGE_PREFIX = "agoge:notifications:seen:";
+const getLocalReadStorageKey = (
+  organizationId?: string,
+  scope: "customer" | "tenant" = "tenant",
+) => `${LOCAL_READ_STORAGE_PREFIX}${scope}:${organizationId ?? "global"}`;
 
-const getStoredSeenAt = (organizationId?: string) => {
+const getStoredLocalReadIds = (
+  organizationId?: string,
+  scope: "customer" | "tenant" = "tenant",
+) => {
   if (!organizationId) return null;
 
   try {
-    return localStorage.getItem(`${SEEN_STORAGE_PREFIX}${organizationId}`);
+    const raw = localStorage.getItem(getLocalReadStorageKey(organizationId, scope));
+    return raw ? (JSON.parse(raw) as string[]) : [];
   } catch {
-    return null;
+    return [];
   }
 };
 
-const storeSeenAt = (organizationId: string | undefined, value: string) => {
+const storeLocalReadIds = (
+  organizationId: string | undefined,
+  ids: string[],
+  scope: "customer" | "tenant" = "tenant",
+) => {
   if (!organizationId) return;
 
   try {
-    localStorage.setItem(`${SEEN_STORAGE_PREFIX}${organizationId}`, value);
+    localStorage.setItem(
+      getLocalReadStorageKey(organizationId, scope),
+      JSON.stringify(ids),
+    );
   } catch {
     return;
   }
 };
-
-const isAfterSeenAt = (occurredAt: string, seenAt: string | null) => {
-  if (!seenAt) return true;
-
-  return new Date(occurredAt).getTime() > new Date(seenAt).getTime();
-};
-
-const getFreshUnreadCount = (
-  notifications: NotificationPreview[],
-  seenAt: string | null,
-) =>
-  notifications.filter(
-    (notification) =>
-      !notification.read && isAfterSeenAt(notification.occurredAt, seenAt),
-  ).length;
-
-const getPendingNotifications = (
-  notifications: NotificationPreview[],
-  seenAt: string | null,
-) =>
-  notifications.filter(
-    (notification) =>
-      !notification.read && isAfterSeenAt(notification.occurredAt, seenAt),
-  );
 
 const formatDate = (value?: string | null) => {
   if (!value) return "Sin fecha";
@@ -101,14 +85,16 @@ export function HeaderNotificationCenter() {
   });
   const markInboxItemAsRead = useMarkNotificationAsRead();
   const organizationId = activeMembership?.organization.id;
-  const [open, setOpen] = useState(false);
-  const [seenAt, setSeenAt] = useState<string | null>(() =>
-    getStoredSeenAt(organizationId),
-  );
-
-  useEffect(() => {
-    setSeenAt(getStoredSeenAt(organizationId));
-  }, [organizationId]);
+  const localScope = isCustomerPortal ? "customer" : "tenant";
+  const localReadStorageKey = getLocalReadStorageKey(organizationId, localScope);
+  const [localReadState, setLocalReadState] = useState(() => ({
+    key: localReadStorageKey,
+    ids: getStoredLocalReadIds(organizationId, localScope) ?? [],
+  }));
+  const localReadIds =
+    localReadState.key === localReadStorageKey
+      ? localReadState.ids
+      : (getStoredLocalReadIds(organizationId, localScope) ?? []);
 
   const canReadInbox =
     !isCustomerPortal &&
@@ -144,7 +130,6 @@ export function HeaderNotificationCenter() {
     : canReadAnalyticsOperations
       ? operations.data?.unreadNotifications ?? 0
       : 0;
-  const unreadRealtimeCount = realtimeNotifications.filter((item) => !item.read).length;
   const recentNotifications = canReadInbox
     ? (notificationSummary.data?.recent ?? []).map((item) => ({
         id: item.id,
@@ -159,7 +144,7 @@ export function HeaderNotificationCenter() {
           title: getNotificationTitle(item),
           description: item.message,
           occurredAt: item.createdAt,
-          read: item.isRead,
+          read: item.isRead || localReadIds.includes(item.id),
         }))
       : isCustomerPortal
         ? (customerPayments.data?.items ?? []).map((payment) => ({
@@ -174,17 +159,25 @@ export function HeaderNotificationCenter() {
               payment.status,
             ).toLowerCase()} · vence ${formatDate(payment.dueDate)}`,
             occurredAt: payment.updatedAt ?? payment.createdAt,
-            read: false,
+            read: localReadIds.includes(payment.id),
           }))
-        : realtimeNotifications.slice(0, 8);
-  const pendingNotifications = getPendingNotifications(recentNotifications, seenAt);
-  const freshUnreadCount = getFreshUnreadCount(recentNotifications, seenAt);
-  const badgeCount =
-    !seenAt && (canReadInbox || canReadAnalyticsOperations)
-      ? unreadCount
-      : canReadInbox || canReadAnalyticsOperations
-        ? freshUnreadCount
-        : pendingNotifications.length;
+        : realtimeNotifications
+            .slice(0, 8)
+            .map((item) => ({
+              ...item,
+              read: item.read || localReadIds.includes(item.id),
+            }));
+  const pendingNotifications = useMemo(
+    () => recentNotifications.filter((notification) => !notification.read),
+    [recentNotifications],
+  );
+  const badgeCount = canReadInbox ? unreadCount : pendingNotifications.length;
+  const feedNotifications =
+    pendingNotifications.length > 0
+      ? pendingNotifications
+      : !isCustomerPortal && badgeCount > 0
+        ? recentNotifications
+        : [];
   const summaryLabel = canReadInbox
     ? "Inbox compartido"
     : canReadAnalyticsOperations
@@ -192,42 +185,24 @@ export function HeaderNotificationCenter() {
       : isCustomerPortal
         ? "Cobros de tu cuenta"
         : "Eventos en tiempo real";
-  const latestActivityAt =
-    notificationSummary.data?.latestCreatedAt ??
-    recentNotifications[0]?.occurredAt ??
-    new Date().toISOString();
-  const shouldAutoSyncReadState =
-    canReadInbox && unreadCount > 0 && !markAllInboxAsRead.isPending;
-  const shouldClearLocalFeed =
-    !isCustomerPortal && !canReadInbox && unreadRealtimeCount > 0;
   const isLoadingFeed = canReadInbox
     ? notificationSummary.isLoading
     : canReadAnalyticsOperations
       ? operations.isLoading
-      : false;
+      : isCustomerPortal
+        ? customerPayments.isLoading
+        : false;
 
-  const markPanelAsSeen = () => {
-    const nextSeenAt = latestActivityAt;
-    setSeenAt(nextSeenAt);
-    storeSeenAt(organizationId, nextSeenAt);
-
-    if (shouldAutoSyncReadState) {
-      markAllInboxAsRead.mutate();
-    } else if (shouldClearLocalFeed) {
-      markAllLocalAsRead();
-    }
+  const persistLocalReadIds = (nextIds: string[]) => {
+    storeLocalReadIds(organizationId, nextIds, localScope);
+    setLocalReadState({
+      key: localReadStorageKey,
+      ids: nextIds,
+    });
   };
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
-        if (nextOpen) {
-          markPanelAsSeen();
-        }
-      }}
-    >
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
@@ -302,14 +277,14 @@ export function HeaderNotificationCenter() {
             className="pr-1"
             heightClassName="max-h-[22rem]"
           >
-            {isLoadingFeed && !pendingNotifications.length
+            {isLoadingFeed && !feedNotifications.length
               ? Array.from({ length: 4 }).map((_, index) => (
                   <div
                     key={index}
                     className="h-20 animate-pulse rounded-[1.2rem] border bg-muted/35"
                   />
                 ))
-              : pendingNotifications.map((item) => {
+              : feedNotifications.map((item) => {
                   const isRealtimeOnly = !canReadInbox && !canReadAnalyticsOperations;
                   const canMarkItem = canReadInbox || isRealtimeOnly;
                   const isItemPending =
@@ -352,6 +327,9 @@ export function HeaderNotificationCenter() {
                               }
 
                               markLocalAsRead(item.id);
+                              persistLocalReadIds(
+                                Array.from(new Set([...localReadIds, item.id])),
+                              );
                             }}
                           >
                             {isItemPending ? (
@@ -370,7 +348,7 @@ export function HeaderNotificationCenter() {
                   );
                 })}
 
-            {!isLoadingFeed && !pendingNotifications.length ? (
+            {!isLoadingFeed && !feedNotifications.length ? (
               <div className="rounded-[1.2rem] border border-dashed p-4 text-sm text-muted-foreground">
                 No tienes notificaciones recientes.
               </div>
@@ -383,7 +361,7 @@ export function HeaderNotificationCenter() {
         <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             {badgeCount > 0
-              ? "Las alertas nuevas se limpian al abrirse o marcarlas como leidas."
+              ? "Las alertas nuevas permanecen visibles hasta marcarlas como leidas."
               : "Tu centro de actividad esta al dia."}
           </p>
 
@@ -406,10 +384,20 @@ export function HeaderNotificationCenter() {
                 variant="ghost"
                 size="sm"
                 className="rounded-full"
-                onClick={markAllLocalAsRead}
+                onClick={() => {
+                  markAllLocalAsRead();
+                  persistLocalReadIds(
+                    Array.from(
+                      new Set([
+                        ...localReadIds,
+                        ...pendingNotifications.map((item) => item.id),
+                      ]),
+                    ),
+                  );
+                }}
               >
                 <CheckCheck className="size-4" />
-                Limpiar feed
+                Marcar todo
               </Button>
             ) : null}
 
