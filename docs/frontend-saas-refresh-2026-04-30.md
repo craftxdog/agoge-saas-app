@@ -24,6 +24,26 @@ hacia una UI mas limpia, compacta y orientada a decisiones de negocio.
 - Cuando ya no hay pendientes, el panel muestra el mensaje:
   `No tienes notificaciones recientes.`
 - Se mantuvo el acceso a la bandeja completa para historial persistente.
+- En portal cliente se agrego un fallback basado en `billing/payments` para que
+  el usuario vea actividad de cobros aunque el socket no este activo.
+- El parser realtime de billing ahora acepta `member.id` y `memberId` para ser
+  mas tolerante con el payload emitido por backend.
+
+### Cobros
+
+- La fecha de vencimiento ahora usa un campo mas guiado con popover tipo
+  shadcn y acciones rapidas.
+- `periodMonth` y `periodYear` se sincronizan automaticamente desde la fecha.
+- La seleccion de miembro paso de `select` plano a una busqueda guiada con
+  confirmacion visual del cliente seleccionado.
+- Se agrego busqueda local en la lista de cobros.
+- Se agrego un flujo de `anular cobro` para errores operativos:
+  - no borra el registro
+  - lo deja `CANCELLED`
+  - preserva trazabilidad
+- El frontend reconoce permisos finos futuros como `billing.cancel` y
+  `billing.override`, aunque hoy el control principal sigue siendo
+  `billing.write`.
 
 ### Dashboard
 
@@ -55,6 +75,12 @@ El tiempo real sigue siendo util para sincronizar:
 - cambios de cobros
 - eventos operativos
 - invalidaciones de queries activas
+
+### Nota importante
+
+El repositorio documenta `VITE_SOCKET_ENABLED=false` por defecto en `README.md`.
+Si esa variable no se activa, el socket no se conecta y las notificaciones live
+no van a entrar por realtime aunque el frontend ya soporte ese flujo.
 
 ## Archivos tocados
 

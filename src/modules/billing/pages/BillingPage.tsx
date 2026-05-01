@@ -1,12 +1,26 @@
 import type { ReactNode } from "react";
 import {
+  AlertTriangle,
   Banknote,
+  CalendarDays,
   CreditCard,
   FileText,
+  Loader2,
   ReceiptText,
   WalletCards,
 } from "lucide-react";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,10 +37,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { CursorPagination } from "@/shared/components/CursorPagination";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
+import { useAuth } from "@/shared/hooks/useAuth";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
 import { useMembers } from "@/modules/users/hooks/useUsers";
+import { BillingDateField } from "../components/BillingDateField";
 import { CustomerBillingView } from "../components/CustomerBillingView";
+import { MemberLookupField } from "../components/MemberLookupField";
+import {
+  getPaymentLabel,
+  getPaymentStatusLabel,
+} from "../utils/billing-copy";
 import {
   paymentFrequencies,
   paymentStatuses,
@@ -57,8 +78,23 @@ import {
 } from "../hooks/useBilling";
 
 const today = new Date().toISOString().slice(0, 10);
-const currentMonth = new Date().getMonth() + 1;
-const currentYear = new Date().getFullYear();
+const getBillingPeriodFromDate = (dateValue: string) => {
+  const date = new Date(`${dateValue}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return {
+      periodMonth: new Date().getMonth() + 1,
+      periodYear: new Date().getFullYear(),
+    };
+  }
+
+  return {
+    periodMonth: date.getMonth() + 1,
+    periodYear: date.getFullYear(),
+  };
+};
+
+const currentPeriod = getBillingPeriodFromDate(today);
 
 const typeDefaults: CreatePaymentType = {
   key: "",
@@ -85,8 +121,8 @@ const paymentDefaults: CreatePayment = {
   amount: "",
   currency: "NIO",
   dueDate: today,
-  periodMonth: currentMonth,
-  periodYear: currentYear,
+  periodMonth: currentPeriod.periodMonth,
+  periodYear: currentPeriod.periodYear,
   notes: "",
 };
 
@@ -106,8 +142,11 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
 
 export default function BillingPage() {
   const { isCustomerPortal } = useAccessContext();
+  const { hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState("payments");
   const [catalogSearch, setCatalogSearch] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [paymentSearch, setPaymentSearch] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | undefined>();
   const [selectedPaymentId, setSelectedPaymentId] = useState("");
   const [paymentForm, setPaymentForm] = useState(paymentDefaults);
@@ -115,13 +154,21 @@ export default function BillingPage() {
   const [methodForm, setMethodForm] = useState(methodDefaults);
   const [transactionForm, setTransactionForm] = useState(transactionDefaults);
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentDueDateDraft, setPaymentDueDateDraft] = useState(today);
   const paymentsPagination = useCursorPagination(20);
   const debouncedCatalogSearch = useDebouncedValue(catalogSearch, 350);
+  const debouncedMemberSearch = useDebouncedValue(memberSearch, 250);
+  const canWriteBilling = hasPermission("billing.write");
+  const canCancelPayments =
+    hasPermission("billing.cancel") ||
+    hasPermission("billing.override") ||
+    hasPermission("billing.write");
 
   const summary = useBillingSummary();
   const members = useMembers({
+    search: debouncedMemberSearch || undefined,
     status: "ACTIVE",
-    limit: 100,
+    limit: 12,
     sortBy: "createdAt",
     sortDirection: "desc",
   }, {
@@ -167,6 +214,25 @@ export default function BillingPage() {
   const memberOptions = members.data?.items ?? [];
   const selectedPayment =
     paymentDetail.data ?? payments.data?.items.find((payment) => payment.id === selectedPaymentId);
+  const selectedMember =
+    memberOptions.find((member) => member.id === paymentForm.memberId) ?? null;
+  const visiblePayments = (payments.data?.items ?? []).filter((payment) => {
+    const search = paymentSearch.trim().toLowerCase();
+
+    if (!search) return true;
+
+    return [
+      payment.member.firstName,
+      payment.member.lastName,
+      payment.member.email,
+      payment.invoiceNumber ?? "",
+      payment.paymentType?.name ?? "",
+      payment.status,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  });
 
   if (isCustomerPortal) {
     return <CustomerBillingView />;
@@ -205,6 +271,14 @@ export default function BillingPage() {
         />
       </div>
 
+      {!canWriteBilling ? (
+        <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50/80 px-5 py-4 text-sm text-amber-950">
+          Esta sesion solo tiene lectura o gestion parcial del modulo. Para crear,
+          corregir o anular cobros necesitas `billing.write` o un permiso fino como
+          `billing.cancel` / `billing.override`.
+        </div>
+      ) : null}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="payments" className="rounded-xl px-4 py-2">
@@ -236,16 +310,28 @@ export default function BillingPage() {
                   onSubmit={(event) => {
                     event.preventDefault();
                     createPayment.mutate(clean(paymentForm) as CreatePayment, {
-                      onSuccess: () => setPaymentForm(paymentDefaults),
+                      onSuccess: () => {
+                        setPaymentForm(paymentDefaults);
+                        setMemberSearch("");
+                      },
                     });
                   }}
                 >
-                  <MemberSelect
-                    value={paymentForm.memberId}
+                  <MemberLookupField
+                    search={memberSearch}
+                    selectedMemberId={paymentForm.memberId}
                     members={memberOptions}
-                    onChange={(value) =>
-                      setPaymentForm((current) => ({ ...current, memberId: value }))
-                    }
+                    isLoading={members.isLoading}
+                    onSearchChange={setMemberSearch}
+                    onSelect={(value) => {
+                      const member = memberOptions.find((item) => item.id === value);
+                      setPaymentForm((current) => ({ ...current, memberId: value }));
+                      if (member) {
+                        setMemberSearch(
+                          `${member.user.firstName} ${member.user.lastName}`.trim(),
+                        );
+                      }
+                    }}
                   />
                   <PaymentTypeSelect
                     value={paymentForm.paymentTypeId ?? ""}
@@ -260,6 +346,20 @@ export default function BillingPage() {
                       }));
                     }}
                   />
+
+                  {selectedMember ? (
+                    <div className="rounded-[1.15rem] border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+                      Confirma antes de guardar: este cobro se asignara a{" "}
+                      <span className="font-semibold text-foreground">
+                        {selectedMember.user.firstName} {selectedMember.user.lastName}
+                      </span>{" "}
+                      con correo{" "}
+                      <span className="font-semibold text-foreground">
+                        {selectedMember.user.email}
+                      </span>.
+                    </div>
+                  ) : null}
+
                   <div className="grid gap-3 sm:grid-cols-2">
                     <TextField
                       label="Monto"
@@ -279,37 +379,33 @@ export default function BillingPage() {
                       }
                     />
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <TextField
-                      label="Vence"
-                      type="date"
+
+                  <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+                    <BillingDateField
+                      label="Vencimiento"
                       value={paymentForm.dueDate}
                       onChange={(value) =>
-                        setPaymentForm((current) => ({ ...current, dueDate: value }))
-                      }
-                    />
-                    <TextField
-                      label="Mes"
-                      type="number"
-                      value={String(paymentForm.periodMonth ?? "")}
-                      onChange={(value) =>
                         setPaymentForm((current) => ({
                           ...current,
-                          periodMonth: Number(value),
+                          dueDate: value,
+                          ...getBillingPeriodFromDate(value),
                         }))
                       }
                     />
-                    <TextField
-                      label="Anio"
-                      type="number"
-                      value={String(paymentForm.periodYear ?? "")}
-                      onChange={(value) =>
-                        setPaymentForm((current) => ({
-                          ...current,
-                          periodYear: Number(value),
-                        }))
-                      }
-                    />
+                    <div className="rounded-[1.2rem] border bg-muted/15 px-4 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        Periodo contable
+                      </p>
+                      <p className="mt-2 text-lg font-semibold">
+                        {new Intl.DateTimeFormat("es-NI", {
+                          month: "long",
+                          year: "numeric",
+                        }).format(new Date(`${paymentForm.dueDate}T00:00:00`))}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Se sincroniza automaticamente desde la fecha elegida.
+                      </p>
+                    </div>
                   </div>
                   <TextField
                     label="Factura"
@@ -332,7 +428,13 @@ export default function BillingPage() {
                       }))
                     }
                   />
-                  <Button className="w-fit rounded-full" disabled={createPayment.isPending}>
+                  <Button
+                    className="w-fit rounded-full"
+                    disabled={!canWriteBilling || createPayment.isPending}
+                  >
+                    {createPayment.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : null}
                     Crear cobro
                   </Button>
                 </form>
@@ -351,27 +453,33 @@ export default function BillingPage() {
                       {payments.data?.pagination?.count ?? 0} cobros en esta vista
                     </p>
                   </div>
-                  <select
-                    className="h-11 rounded-full border bg-white/70 px-4 text-sm"
-                    value={paymentStatus ?? ""}
-                    onChange={(event) =>
-                      {
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      className="h-11 rounded-full bg-white/70"
+                      placeholder="Buscar por cliente, factura o concepto..."
+                      value={paymentSearch}
+                      onChange={(event) => setPaymentSearch(event.target.value)}
+                    />
+                    <select
+                      className="h-11 rounded-full border bg-white/70 px-4 text-sm"
+                      value={paymentStatus ?? ""}
+                      onChange={(event) => {
                         setPaymentStatus(
                           event.target.value
                             ? (event.target.value as PaymentStatus)
                             : undefined,
                         );
                         paymentsPagination.reset();
-                      }
-                    }
-                  >
-                    <option value="">Todos</option>
-                    {paymentStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
+                      }}
+                    >
+                      <option value="">Todos</option>
+                      {paymentStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="grid gap-3">
@@ -380,7 +488,7 @@ export default function BillingPage() {
                     ? Array.from({ length: 5 }).map((_, index) => (
                         <PaymentRowSkeleton key={index} />
                       ))
-                    : (payments.data?.items ?? []).map((payment) => (
+                    : visiblePayments.map((payment) => (
                         <PaymentRow
                           key={payment.id}
                           payment={payment}
@@ -393,9 +501,16 @@ export default function BillingPage() {
                               currency: payment.currency,
                             }));
                             setPaymentNotes(payment.notes ?? "");
+                            setPaymentDueDateDraft(payment.dueDate.slice(0, 10));
                           }}
                         />
                       ))}
+
+                  {!payments.isLoading && !visiblePayments.length ? (
+                    <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                      No encontramos cobros con los filtros actuales.
+                    </div>
+                  ) : null}
                 </ScrollPanel>
 
                 <CursorPagination
@@ -447,7 +562,7 @@ export default function BillingPage() {
                       {selectedPayment.member.firstName} {selectedPayment.member.lastName}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Balance {selectedPayment.balance} {selectedPayment.currency} · Estado {selectedPayment.status}
+                      Balance {selectedPayment.balance} {selectedPayment.currency} · Estado {getPaymentStatusLabel(selectedPayment.status)}
                     </p>
                   </div>
                 )}
@@ -526,7 +641,11 @@ export default function BillingPage() {
                   />
                   <Button
                     className="w-fit rounded-full"
-                    disabled={!selectedPaymentId || createTransaction.isPending}
+                    disabled={
+                      !canWriteBilling ||
+                      !selectedPaymentId ||
+                      createTransaction.isPending
+                    }
                   >
                     Registrar pago
                   </Button>
@@ -538,6 +657,7 @@ export default function BillingPage() {
                     <select
                       className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
                       value={selectedPayment?.status ?? ""}
+                      disabled={!canWriteBilling}
                       onChange={(event) => {
                         if (!selectedPaymentId) return;
                         updatePayment.mutate({
@@ -552,6 +672,30 @@ export default function BillingPage() {
                         </option>
                       ))}
                     </select>
+                    <BillingDateField
+                      label="Reprogramar vencimiento"
+                      value={paymentDueDateDraft}
+                      onChange={setPaymentDueDateDraft}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-fit rounded-full"
+                      disabled={
+                        !canWriteBilling ||
+                        !selectedPaymentId ||
+                        updatePayment.isPending
+                      }
+                      onClick={() =>
+                        updatePayment.mutate({
+                          paymentId: selectedPaymentId,
+                          data: { dueDate: paymentDueDateDraft },
+                        })
+                      }
+                    >
+                      <CalendarDays className="size-4" />
+                      Guardar vencimiento
+                    </Button>
                     <Textarea
                       className="min-h-24 rounded-2xl bg-white/70"
                       placeholder="Notas del cobro"
@@ -562,7 +706,11 @@ export default function BillingPage() {
                       type="button"
                       variant="outline"
                       className="w-fit rounded-full"
-                      disabled={!selectedPaymentId || updatePayment.isPending}
+                      disabled={
+                        !canWriteBilling ||
+                        !selectedPaymentId ||
+                        updatePayment.isPending
+                      }
                       onClick={() =>
                         updatePayment.mutate({
                           paymentId: selectedPaymentId,
@@ -572,6 +720,69 @@ export default function BillingPage() {
                     >
                       Guardar notas
                     </Button>
+
+                    {canCancelPayments ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            className="w-fit rounded-full"
+                            disabled={
+                              !selectedPaymentId ||
+                              !canWriteBilling ||
+                              updatePayment.isPending
+                            }
+                          >
+                            <AlertTriangle className="size-4" />
+                            Anular cobro
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent size="default" className="rounded-[1.4rem]">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Anular cobro por error operativo
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta accion no borra el registro: lo deja como
+                              cancelado para trazabilidad. Es el flujo correcto
+                              cuando el cobro fue asignado al cliente incorrecto.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="rounded-[1rem] border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                            Recomendacion: anula este cobro y luego crea uno nuevo
+                            con el cliente correcto. Si quieres delegarlo a una
+                            supervisora, conviene usar un permiso fino como
+                            `billing.cancel`.
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel className="rounded-full">
+                              Volver
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              className="rounded-full"
+                              onClick={() =>
+                                updatePayment.mutate({
+                                  paymentId: selectedPaymentId,
+                                  data: {
+                                    status: "CANCELLED",
+                                    notes: [
+                                      paymentNotes?.trim(),
+                                      "Cobro anulado por asignacion incorrecta.",
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" "),
+                                  },
+                                })
+                              }
+                            >
+                              Confirmar anulacion
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : null}
                   </div>
                 </div>
               </CardContent>
@@ -747,10 +958,13 @@ function PaymentRow({
             <p className="font-semibold">
               {payment.member.firstName} {payment.member.lastName}
             </p>
-            <Badge className="rounded-full">{payment.status}</Badge>
+            <Badge className="rounded-full">
+              {getPaymentStatusLabel(payment.status)}
+            </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {payment.paymentType?.name ?? "Cobro manual"} · vence {new Date(payment.dueDate).toLocaleDateString("es-NI")}
+            {getPaymentLabel(payment)} · vence{" "}
+            {new Date(payment.dueDate).toLocaleDateString("es-NI")}
           </p>
         </div>
         <div className="text-left md:text-right">
@@ -761,34 +975,6 @@ function PaymentRow({
         </div>
       </div>
     </button>
-  );
-}
-
-function MemberSelect({
-  value,
-  members,
-  onChange,
-}: {
-  value: string;
-  members: { id: string; user: { firstName: string; lastName: string; email: string } }[];
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="grid gap-2">
-      <Label>Miembro</Label>
-      <select
-        className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">Selecciona miembro</option>
-        {members.map((member) => (
-          <option key={member.id} value={member.id}>
-            {member.user.firstName} {member.user.lastName} · {member.user.email}
-          </option>
-        ))}
-      </select>
-    </div>
   );
 }
 

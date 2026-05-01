@@ -14,6 +14,7 @@ import { dayOptions } from "@/modules/schedules/schemas/schedules.schema";
 
 type BillingRealtimePayment = {
   id?: string;
+  memberId?: string;
   dueDate?: string;
   currency?: string;
   balance?: string;
@@ -145,7 +146,9 @@ const buildBillingNotification = (
       ? (paymentData as BillingTransactionPayload | null)?.payment ?? null
       : (paymentData as BillingRealtimePayment | null);
 
-  if (isCustomerPortal && payment?.member?.id !== memberId) {
+  const paymentMemberId = payment?.member?.id ?? payment?.memberId;
+
+  if (isCustomerPortal && paymentMemberId !== memberId) {
     return null;
   }
 

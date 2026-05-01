@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAnalyticsOperations } from "@/modules/analytics/hooks/useAnalyticsResources";
+import { usePayments } from "@/modules/billing/hooks/useBilling";
+import { getPaymentStatusLabel, getPaymentTypeLabel } from "@/modules/billing/utils/billing-copy";
 import {
   useMarkAllNotificationsAsRead,
   useMarkNotificationAsRead,
@@ -76,6 +78,17 @@ const getPendingNotifications = (
       !notification.read && isAfterSeenAt(notification.occurredAt, seenAt),
   );
 
+const formatDate = (value?: string | null) => {
+  if (!value) return "Sin fecha";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("es-NI", {
+    dateStyle: "medium",
+  }).format(date);
+};
+
 export function HeaderNotificationCenter() {
   const { activeMembership, permissions, enabledModules } = useAuthStore();
   const { isCustomerPortal, memberId } = useAccessContext();
@@ -111,6 +124,20 @@ export function HeaderNotificationCenter() {
     { groupBy: "week" },
     { enabled: canReadAnalyticsOperations },
   );
+  const customerPayments = usePayments(
+    {
+      memberId: memberId ?? undefined,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+      limit: 8,
+    },
+    {
+      enabled: isCustomerPortal && Boolean(memberId),
+      refetchInterval: 15000,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    },
+  );
 
   const unreadCount = canReadInbox
     ? notificationSummary.data?.unreadCount ?? 0
@@ -134,7 +161,22 @@ export function HeaderNotificationCenter() {
           occurredAt: item.createdAt,
           read: item.isRead,
         }))
-      : realtimeNotifications.slice(0, 8);
+      : isCustomerPortal
+        ? (customerPayments.data?.items ?? []).map((payment) => ({
+            id: payment.id,
+            title:
+              payment.status === "PAID"
+                ? "Tu cobro fue actualizado como pagado"
+                : payment.status === "OVERDUE"
+                  ? "Tu cobro requiere atencion"
+                  : "Se registro un cobro en tu cuenta",
+            description: `${getPaymentTypeLabel(payment.paymentType)} · ${getPaymentStatusLabel(
+              payment.status,
+            ).toLowerCase()} · vence ${formatDate(payment.dueDate)}`,
+            occurredAt: payment.updatedAt ?? payment.createdAt,
+            read: false,
+          }))
+        : realtimeNotifications.slice(0, 8);
   const pendingNotifications = getPendingNotifications(recentNotifications, seenAt);
   const freshUnreadCount = getFreshUnreadCount(recentNotifications, seenAt);
   const badgeCount =
@@ -142,12 +184,14 @@ export function HeaderNotificationCenter() {
       ? unreadCount
       : canReadInbox || canReadAnalyticsOperations
         ? freshUnreadCount
-        : unreadRealtimeCount;
+        : pendingNotifications.length;
   const summaryLabel = canReadInbox
     ? "Inbox compartido"
     : canReadAnalyticsOperations
       ? "Resumen operativo"
-      : "Eventos en tiempo real";
+      : isCustomerPortal
+        ? "Cobros de tu cuenta"
+        : "Eventos en tiempo real";
   const latestActivityAt =
     notificationSummary.data?.latestCreatedAt ??
     recentNotifications[0]?.occurredAt ??
@@ -155,7 +199,7 @@ export function HeaderNotificationCenter() {
   const shouldAutoSyncReadState =
     canReadInbox && unreadCount > 0 && !markAllInboxAsRead.isPending;
   const shouldClearLocalFeed =
-    (isCustomerPortal || !canReadInbox) && unreadRealtimeCount > 0;
+    !isCustomerPortal && !canReadInbox && unreadRealtimeCount > 0;
   const isLoadingFeed = canReadInbox
     ? notificationSummary.isLoading
     : canReadAnalyticsOperations
