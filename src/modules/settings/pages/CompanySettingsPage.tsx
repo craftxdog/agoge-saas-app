@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import { FormError } from "@/components/atoms/form-error";
+import { FormActionRow } from "@/components/molecules/form-action-row";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +63,17 @@ const defaultBranding = {
   primaryColor: "#4f8f83",
   secondaryColor: "#6f91b8",
   accentColor: "#d99a5f",
+};
+
+const defaultScreenValues = {
+  key: "",
+  title: "",
+  path: "",
+  type: "CUSTOM_PAGE" as const,
+  moduleKey: "settings",
+  requiredPermissionKey: "settings.read",
+  sortOrder: 100,
+  isVisible: true,
 };
 
 const preferenceNamespaces = ["billing", "security", "notifications", "operations"];
@@ -120,16 +132,7 @@ export default function CompanySettingsPage() {
     CreateOrganizationScreen
   >({
     resolver: zodResolver(createOrganizationScreenSchema),
-    defaultValues: {
-      key: "",
-      title: "",
-      path: "",
-      type: "CUSTOM_PAGE",
-      moduleKey: "settings",
-      requiredPermissionKey: "settings.read",
-      sortOrder: 100,
-      isVisible: true,
-    },
+    defaultValues: defaultScreenValues,
   });
   const [preferenceKey, setPreferenceKey] = useState("invoicePrefix");
   const [preferenceValue, setPreferenceValue] = useState("AGO");
@@ -162,6 +165,32 @@ export default function CompanySettingsPage() {
     });
   }, [brandingForm, organization.data, profileForm]);
 
+  const preferencePresetGroups = buildPreferencePresets({
+    currency: organization.data?.defaultCurrency ?? "USD",
+    modules: modules.data ?? [],
+    screens: screens.data ?? [],
+  });
+  const activePreferencePresets =
+    preferencePresetGroups[preferencesNamespace] ?? preferencePresetGroups.billing;
+  const selectedPreference =
+    activePreferencePresets.find((preset) => preset.key === preferenceKey) ??
+    activePreferencePresets[0];
+  const currentPreference =
+    preferences.data?.find(
+      (setting) =>
+        setting.namespace === preferencesNamespace &&
+        setting.key === selectedPreference.key,
+    ) ?? null;
+  const currentPreferenceValue =
+    currentPreference !== null
+      ? formatPreferenceInputValue(currentPreference.value)
+      : selectedPreference.defaultValue;
+  const isPreferenceDirty = preferenceValue !== currentPreferenceValue;
+
+  useEffect(() => {
+    setPreferenceValue(currentPreferenceValue);
+  }, [currentPreferenceValue]);
+
   if (organization.isLoading) return <SettingsSkeleton />;
 
   if (organization.isError || !organization.data) {
@@ -183,16 +212,26 @@ export default function CompanySettingsPage() {
   const iconVersion = getStoredBrandAssetVersion(activeMembership?.organization.id, "icon");
   const logoPreviewUrl = resolveBrandAssetUrl(tenant.branding?.logoUrl, logoVersion);
   const iconPreviewUrl = resolveBrandAssetUrl(tenant.branding?.iconUrl, iconVersion);
-  const preferencePresetGroups = buildPreferencePresets({
-    currency: tenant.defaultCurrency,
-    modules: modules.data ?? [],
-    screens: screens.data ?? [],
-  });
-  const activePreferencePresets =
-    preferencePresetGroups[preferencesNamespace] ?? preferencePresetGroups.billing;
-  const selectedPreference =
-    activePreferencePresets.find((preset) => preset.key === preferenceKey) ??
-    activePreferencePresets[0];
+  const resetProfileForm = () =>
+    profileForm.reset({
+      name: tenant.name,
+      legalName: tenant.legalName ?? "",
+      taxId: tenant.taxId ?? "",
+      timezone: tenant.timezone,
+      locale: tenant.locale,
+      defaultCurrency: tenant.defaultCurrency,
+    });
+  const resetBrandingForm = () => {
+    brandingForm.reset({
+      primaryColor: tenant.branding?.primaryColor ?? defaultBranding.primaryColor,
+      secondaryColor:
+        tenant.branding?.secondaryColor ?? defaultBranding.secondaryColor,
+      accentColor: tenant.branding?.accentColor ?? defaultBranding.accentColor,
+    });
+    setAssetDraft(null);
+  };
+  const resetScreenDraft = () => screenForm.reset(defaultScreenValues);
+  const resetPreferenceDraft = () => setPreferenceValue(currentPreferenceValue);
 
   return (
     <section className="grid gap-8">
@@ -299,14 +338,13 @@ export default function CompanySettingsPage() {
                 />
               </div>
 
-              <Button
-                type="submit"
-                disabled={profileMutation.isPending}
-                className="w-fit rounded-full"
-              >
-                {profileMutation.isPending && <Loader2 className="animate-spin" />}
-                Guardar perfil
-              </Button>
+              <FormActionRow
+                isDirty={profileForm.formState.isDirty}
+                isPending={profileMutation.isPending}
+                onCancel={resetProfileForm}
+                submitLabel="Guardar perfil"
+                pendingLabel="Guardando perfil..."
+              />
             </form>
           </CardContent>
         </Card>
@@ -456,14 +494,17 @@ export default function CompanySettingsPage() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                disabled={brandingMutation.isPending}
-                className="w-fit rounded-full"
-              >
-                {brandingMutation.isPending && <Loader2 className="animate-spin" />}
-                Guardar branding
-              </Button>
+              <FormActionRow
+                isDirty={brandingForm.formState.isDirty}
+                isPending={
+                  brandingMutation.isPending ||
+                  logoUploadMutation.isPending ||
+                  iconUploadMutation.isPending
+                }
+                onCancel={resetBrandingForm}
+                submitLabel="Guardar branding"
+                pendingLabel="Guardando branding..."
+              />
             </form>
           </CardContent>
         </Card>
@@ -609,16 +650,13 @@ export default function CompanySettingsPage() {
                     register={screenForm.register("requiredPermissionKey")}
                     error={screenForm.formState.errors.requiredPermissionKey?.message}
                   />
-                  <Button
-                    type="submit"
-                    className="w-fit rounded-full"
-                    disabled={createScreenMutation.isPending}
-                  >
-                    {createScreenMutation.isPending && (
-                      <Loader2 className="animate-spin" />
-                    )}
-                    Crear pantalla
-                  </Button>
+                  <FormActionRow
+                    isDirty={screenForm.formState.isDirty}
+                    isPending={createScreenMutation.isPending}
+                    onCancel={resetScreenDraft}
+                    submitLabel="Crear pantalla"
+                    pendingLabel="Creando pantalla..."
+                  />
                 </form>
               </CardContent>
             </Card>
@@ -770,16 +808,13 @@ export default function CompanySettingsPage() {
                     value={preferenceValue || selectedPreference.defaultValue}
                     onChange={setPreferenceValue}
                   />
-                  <Button
-                    type="submit"
-                    className="w-fit rounded-full"
-                    disabled={upsertPreferencesMutation.isPending}
-                  >
-                    {upsertPreferencesMutation.isPending && (
-                      <Loader2 className="animate-spin" />
-                    )}
-                    Guardar preferencia
-                  </Button>
+                  <FormActionRow
+                    isDirty={isPreferenceDirty}
+                    isPending={upsertPreferencesMutation.isPending}
+                    onCancel={resetPreferenceDraft}
+                    submitLabel="Guardar preferencia"
+                    pendingLabel="Guardando preferencia..."
+                  />
                 </form>
               </CardContent>
             </Card>
@@ -951,6 +986,13 @@ function parsePresetValue(kind: PreferencePreset["kind"], value: string) {
   if (kind === "boolean") return value === "true";
   if (kind === "number") return Number(value);
   return value;
+}
+
+function formatPreferenceInputValue(value: unknown) {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
 }
 
 function formatPreferenceValue(value: unknown) {

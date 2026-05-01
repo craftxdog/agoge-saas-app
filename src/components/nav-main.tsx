@@ -30,11 +30,11 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
 
   return (
     <SidebarGroup className="p-0">
-      <SidebarGroupLabel className="px-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+      <SidebarGroupLabel className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
         Navegacion
       </SidebarGroupLabel>
 
-      <SidebarMenu className="gap-1.5">
+      <SidebarMenu className="gap-1">
         {items.map((item) => {
           const hasChildren = item.items && item.items.length > 0;
           const isParentActive = isItemActive(item.url);
@@ -47,7 +47,7 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                   isActive={isParentActive}
                   size="lg"
                   className={
-                    "h-12 rounded-xl px-3 text-[15px] font-medium [&>svg]:size-4" +
+                    "h-10 rounded-xl px-2.5 text-[14px] font-medium [&>svg]:size-4" +
                     (isParentActive
                       ? " border border-sidebar-border/80 bg-white text-sidebar-foreground shadow-sm"
                       : " text-sidebar-foreground/88 hover:bg-white/75")
@@ -57,7 +57,7 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                     {item.icon ? (
                       <span
                         className={
-                          "grid size-8 shrink-0 place-items-center rounded-lg" +
+                          "grid size-7 shrink-0 place-items-center rounded-lg" +
                           (isParentActive
                             ? " bg-primary/10 text-primary"
                             : " bg-muted/35 text-sidebar-foreground/75")
@@ -79,7 +79,7 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                 isActive={isParentActive}
                 size="lg"
                 className={
-                  "h-12 rounded-xl px-3 text-[15px] font-medium [&>svg]:size-4" +
+                  "h-10 rounded-xl px-2.5 text-[14px] font-medium [&>svg]:size-4" +
                   (isParentActive
                     ? " border border-sidebar-border/80 bg-white text-sidebar-foreground shadow-sm"
                     : " text-sidebar-foreground/88 hover:bg-white/75")
@@ -88,7 +88,7 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                 {item.icon ? (
                   <span
                     className={
-                      "grid size-8 shrink-0 place-items-center rounded-lg" +
+                      "grid size-7 shrink-0 place-items-center rounded-lg" +
                       (isParentActive
                         ? " bg-primary/10 text-primary"
                         : " bg-muted/35 text-sidebar-foreground/75")
@@ -111,7 +111,7 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                         asChild
                         isActive={isSubActive}
                         className={
-                          "ml-11 h-10 rounded-lg px-3 text-[14px]" +
+                          "ml-9 h-9 rounded-lg px-3 text-[13px]" +
                           (isSubActive ? " bg-white text-primary shadow-sm" : "")
                         }
                       >

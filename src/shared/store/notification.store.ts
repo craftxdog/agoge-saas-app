@@ -13,6 +13,7 @@ export type AppNotification = {
 type NotificationState = {
   items: AppNotification[];
   addNotification: (notification: AppNotification) => void;
+  markAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
   reset: () => void;
 };
@@ -27,6 +28,12 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         notification,
         ...state.items.filter((item) => item.id !== notification.id),
       ].slice(0, MAX_NOTIFICATIONS),
+    })),
+  markAsRead: (notificationId) =>
+    set((state) => ({
+      items: state.items.map((item) =>
+        item.id === notificationId ? { ...item, read: true } : item,
+      ),
     })),
   markAllAsRead: () =>
     set((state) => ({

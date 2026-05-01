@@ -27,10 +27,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const brandingQuery = useTenantBranding();
   const branding =
     brandingQuery.data ?? getStoredTenantBranding(activeMembership?.organization.id);
-  const logoUrl = resolveBrandAssetUrl(
-    branding?.logoUrl,
-    getStoredBrandAssetVersion(activeMembership?.organization.id, "logo"),
-  );
   const iconUrl = resolveBrandAssetUrl(
     branding?.iconUrl,
     getStoredBrandAssetVersion(activeMembership?.organization.id, "icon"),
@@ -43,13 +39,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader className="border-b border-sidebar-border/70 px-4 py-4">
+      <SidebarHeader className="border-b border-sidebar-border/60 px-3 py-3">
         <Link
           to="/app"
-          className="rounded-[1.35rem] border border-sidebar-border/80 bg-white/88 p-3 shadow-sm transition-colors hover:bg-white"
+          className="rounded-[1.1rem] border border-sidebar-border/75 bg-white/84 px-3 py-2.5 shadow-sm transition-colors hover:bg-white"
         >
           <div className="flex items-center gap-3">
-            <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-sidebar-border/70 bg-muted/40">
+            <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-sidebar-border/70 bg-muted/40">
               {iconUrl ? (
                 <img
                   src={iconUrl}
@@ -62,35 +58,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </span>
 
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 {isCustomerPortal ? "Portal de cliente" : "Organizacion activa"}
               </p>
-              <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
+              <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
                 {organizationName}
               </p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                 {roleLabel}
               </p>
             </div>
           </div>
-
-          {logoUrl ? (
-            <div className="mt-3 flex h-11 items-center justify-center rounded-xl border border-sidebar-border/60 bg-muted/20 px-3">
-              <img
-                src={logoUrl}
-                alt={organizationName}
-                className="h-full w-full object-contain object-center"
-              />
-            </div>
-          ) : null}
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-4">
+      <SidebarContent className="px-2.5 py-3">
         <NavMain items={navItems} />
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/70 px-4 py-4">
+      <SidebarFooter className="border-t border-sidebar-border/60 px-3 py-3">
         <NavUser />
       </SidebarFooter>
     </Sidebar>

@@ -86,14 +86,18 @@ export const useMarkNotificationAsRead = () => {
   });
 };
 
-export const useMarkAllNotificationsAsRead = () => {
+export const useMarkAllNotificationsAsRead = (options?: {
+  showSuccessToast?: boolean;
+}) => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => notificationsService.markAllAsRead(),
     onSuccess: async () => {
       await invalidateNotificationQueries(queryClient);
-      toast.success("La bandeja quedo marcada como leida.");
+      if (options?.showSuccessToast ?? true) {
+        toast.success("La bandeja quedo marcada como leida.");
+      }
     },
     onError: () => {
       toast.error("No pudimos marcar la bandeja como leida.");

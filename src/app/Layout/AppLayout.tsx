@@ -16,8 +16,8 @@ export const AppLayout = () => {
     <SidebarProvider
       style={
         {
-          "--sidebar-width": "clamp(17rem, 20vw, 19rem)",
-          "--header-height": "5.25rem",
+          "--sidebar-width": "clamp(14.75rem, 17vw, 16rem)",
+          "--header-height": "4rem",
         } as CSSProperties
       }
     >
