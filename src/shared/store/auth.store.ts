@@ -21,6 +21,7 @@ type AuthState = {
   setSession: (session: SessionPayload, token?: string) => void;
   logout: () => void;
   setHydrated: (value: boolean) => void;
+  syncActiveMembershipModules: (enabledModules: string[]) => void;
   hasPermission: (permission: string) => boolean;
   hasModule: (moduleKey: string) => boolean;
 };
@@ -87,6 +88,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setHydrated: (value) => set({ isHydrated: value }),
+
+  syncActiveMembershipModules: (enabledModules) =>
+    set((state) => {
+      if (!state.activeMembership) {
+        return state;
+      }
+
+      const nextActiveMembership = {
+        ...state.activeMembership,
+        enabledModules,
+      };
+
+      return {
+        activeMembership: nextActiveMembership,
+        memberships: state.memberships.map((membership) =>
+          membership.id === nextActiveMembership.id
+            ? nextActiveMembership
+            : membership,
+        ),
+        enabledModules,
+      };
+    }),
 
   hasPermission: (permission) => get().permissions.includes(permission),
 

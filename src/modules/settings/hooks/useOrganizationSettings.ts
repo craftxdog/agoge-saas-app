@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/shared/hooks/useAuth";
 import {
   organizationModuleSchema,
+  type OrganizationModule,
   type OrganizationProfile,
   organizationProfileSchema,
   organizationScreenSchema,
@@ -19,6 +20,7 @@ import {
   persistAndApplyTenantBranding,
   storeBrandAssetVersion,
 } from "../utils/tenant-branding";
+import { useAuthStore } from "@/shared/store/auth.store";
 
 export const organizationSettingsKeys = {
   all: ["settings"] as const,
@@ -27,6 +29,14 @@ export const organizationSettingsKeys = {
   screens: () => [...organizationSettingsKeys.all, "screens"] as const,
   preferences: (namespace?: string) =>
     [...organizationSettingsKeys.all, "preferences", namespace ?? "all"] as const,
+};
+
+const syncEnabledModulesInSession = (modules: OrganizationModule[]) => {
+  const enabledModules = modules
+    .filter((item) => item.isEnabled)
+    .map((item) => item.module.key);
+
+  useAuthStore.getState().syncActiveMembershipModules(enabledModules);
 };
 
 const syncBrandingInCache = ({
@@ -71,7 +81,9 @@ export const useOrganizationModules = () =>
     queryKey: organizationSettingsKeys.modules(),
     queryFn: async () => {
       const res = await settingsService.listModules();
-      return organizationModuleSchema.array().parse(res.data);
+      const modules = organizationModuleSchema.array().parse(res.data);
+      syncEnabledModulesInSession(modules);
+      return modules;
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -203,7 +215,22 @@ export const useUpdateOrganizationModule = () => {
       moduleKey: string;
       data: UpdateOrganizationModule;
     }) => settingsService.updateModule(moduleKey, data),
-    onSuccess: async () => {
+    onSuccess: async (res) => {
+      queryClient.setQueryData<OrganizationModule[] | undefined>(
+        organizationSettingsKeys.modules(),
+        (current) => {
+          if (!current?.length) {
+            return current;
+          }
+
+          const nextModules = current.map((item) =>
+            item.module.key === res.data.module.key ? res.data : item,
+          );
+
+          syncEnabledModulesInSession(nextModules);
+          return nextModules;
+        },
+      );
       await queryClient.invalidateQueries({
         queryKey: organizationSettingsKeys.modules(),
       });

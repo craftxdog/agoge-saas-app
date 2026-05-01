@@ -14,6 +14,7 @@ export const useAuth = () => {
       login: s.login,
       setSession: s.setSession,
       logout: s.logout,
+      syncActiveMembershipModules: s.syncActiveMembershipModules,
       hasPermission: s.hasPermission,
       hasModule: s.hasModule,
     })),
