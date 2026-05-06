@@ -34,17 +34,37 @@ type BillingQueryOptions = {
 export const billingKeys = {
   all: ["billing"] as const,
   summary: () => [...billingKeys.all, "summary"] as const,
+  memberSummary: () => [...billingKeys.all, "member-summary"] as const,
   paymentTypes: (query?: BillingCatalogQuery) =>
     [...billingKeys.all, "payment-types", query] as const,
   paymentMethods: (query?: BillingCatalogQuery) =>
     [...billingKeys.all, "payment-methods", query] as const,
   payments: (query?: PaymentQuery) =>
     [...billingKeys.all, "payments", query] as const,
+  memberPayments: (query?: PaymentQuery) =>
+    [...billingKeys.all, "member-payments", query] as const,
   payment: (paymentId?: string) =>
     [...billingKeys.all, "payment", paymentId] as const,
+  memberPayment: (paymentId?: string) =>
+    [...billingKeys.all, "member-payment", paymentId] as const,
   transactions: (paymentId?: string, query?: PaymentTransactionQuery) =>
     [...billingKeys.all, "transactions", paymentId, query] as const,
+  memberTransactions: (paymentId?: string, query?: PaymentTransactionQuery) =>
+    [...billingKeys.all, "member-transactions", paymentId, query] as const,
 };
+
+export const useMemberBillingSummary = (options?: BillingQueryOptions) =>
+  useQuery({
+    queryKey: billingKeys.memberSummary(),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await billingService.getMemberSummary();
+      return billingSummarySchema.parse(res.data);
+    },
+    staleTime: options?.staleTime,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
+  });
 
 export const useBillingSummary = (options?: BillingQueryOptions) =>
   useQuery({
@@ -109,12 +129,46 @@ export const usePayments = (
     refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
   });
 
+export const useMemberPayments = (
+  query?: PaymentQuery,
+  options?: BillingQueryOptions,
+) =>
+  useQuery({
+    queryKey: billingKeys.memberPayments(query),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await billingService.listMemberPayments(query);
+      return {
+        items: paymentSchema.array().parse(res.data),
+        pagination: res.meta.pagination,
+      };
+    },
+    staleTime: options?.staleTime ?? 1000 * 60 * 2,
+    placeholderData: keepPreviousData,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? false,
+  });
+
 export const usePayment = (paymentId?: string, options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: billingKeys.payment(paymentId),
     enabled: Boolean(paymentId) && (options?.enabled ?? true),
     queryFn: async () => {
       const res = await billingService.getPayment(paymentId!);
+      return paymentSchema.parse(res.data);
+    },
+    refetchOnWindowFocus: false,
+  });
+
+export const useMemberPayment = (
+  paymentId?: string,
+  options?: { enabled?: boolean },
+) =>
+  useQuery({
+    queryKey: billingKeys.memberPayment(paymentId),
+    enabled: Boolean(paymentId) && (options?.enabled ?? true),
+    queryFn: async () => {
+      const res = await billingService.getMemberPayment(paymentId!);
       return paymentSchema.parse(res.data);
     },
     refetchOnWindowFocus: false,
@@ -130,6 +184,21 @@ export const usePaymentTransactions = (
     enabled: Boolean(paymentId) && (options?.enabled ?? true),
     queryFn: async () => {
       const res = await billingService.listTransactions(paymentId!, query);
+      return paymentTransactionSchema.array().parse(res.data);
+    },
+    refetchOnWindowFocus: false,
+  });
+
+export const useMemberPaymentTransactions = (
+  paymentId?: string,
+  query?: PaymentTransactionQuery,
+  options?: { enabled?: boolean },
+) =>
+  useQuery({
+    queryKey: billingKeys.memberTransactions(paymentId, query),
+    enabled: Boolean(paymentId) && (options?.enabled ?? true),
+    queryFn: async () => {
+      const res = await billingService.listMemberTransactions(paymentId!, query);
       return paymentTransactionSchema.array().parse(res.data);
     },
     refetchOnWindowFocus: false,

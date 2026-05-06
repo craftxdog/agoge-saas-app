@@ -58,6 +58,17 @@ const withoutEmptyStrings = <T extends Record<string, unknown>>(payload: T) =>
     Object.entries(payload).filter(([, value]) => value !== ""),
   ) as Partial<T>;
 
+const getAccessScopeLabel = (scope?: "tenant" | "self" | "public") => {
+  switch (scope) {
+    case "self":
+      return "Personal";
+    case "public":
+      return "Publico";
+    default:
+      return "Organizacion";
+  }
+};
+
 export default function RbacPage() {
   const [activeTab, setActiveTab] = useState("roles");
   const [roleSearch, setRoleSearch] = useState("");
@@ -386,7 +397,7 @@ export default function RbacPage() {
                                   variant="outline"
                                   className="rounded-full"
                                 >
-                                  {permission.key}
+                                  {permission.key} · {getAccessScopeLabel(permission.accessScope)}
                                 </Badge>
                               ))}
                               {role.permissions.length > 8 && (
@@ -626,6 +637,9 @@ export default function RbacPage() {
                                       <Badge variant="outline" className="rounded-full">
                                         {permission.key}
                                       </Badge>
+                                      <Badge variant="secondary" className="rounded-full">
+                                        {getAccessScopeLabel(permission.accessScope)}
+                                      </Badge>
                                     </div>
                                     <p className="mt-2 text-sm text-muted-foreground">
                                       {permission.description ?? "Sin descripcion"}
@@ -820,6 +834,7 @@ type PermissionPickerProps = {
   groups: Record<
     string,
     {
+      accessScope?: "tenant" | "self" | "public";
       key: string;
       name: string;
       description?: string | null;
@@ -851,6 +866,10 @@ function PermissionPicker({
           </p>
           <p className="text-sm text-muted-foreground">
             Selecciona permisos desde el catalogo real de la API.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            `Organizacion` abre vistas del tenant. `Personal` limita la
+            experiencia al propio miembro.
           </p>
         </div>
         <select
@@ -890,7 +909,10 @@ function PermissionPicker({
                     onClick={() => onTogglePermission(permission.key)}
                     title={permission.description ?? permission.name}
                   >
-                    {permission.key}
+                    <span>{permission.key}</span>
+                    <span className="ml-2 opacity-70">
+                      {getAccessScopeLabel(permission.accessScope)}
+                    </span>
                   </button>
                 );
               })}

@@ -44,6 +44,11 @@ const withQuery = (
 };
 
 export const schedulesService = {
+  listCurrentMemberSchedules: (query?: MemberScheduleQuery) =>
+    http.get<ApiResponse<MemberSchedule[]>>(
+      withQuery("/schedules/me/availability", query),
+    ),
+
   getDaySchedule: (query?: DayScheduleQuery) =>
     http.get<ApiResponse<DaySchedule>>(withQuery("/schedules/day", query)),
 
@@ -140,4 +145,3 @@ export const schedulesService = {
       `/schedules/availability/${scheduleId}`,
     ),
 };
-

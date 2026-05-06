@@ -16,7 +16,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           {children}
         </AuthInitializer>
       </SocketProvider>
-      <Toaster position="top-right" />
+      <Toaster position="top-center" />
     </QueryClientProvider>
   );
 }

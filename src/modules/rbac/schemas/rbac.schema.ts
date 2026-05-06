@@ -9,6 +9,7 @@ export const permissionSchema = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
+  accessScope: z.enum(["tenant", "self", "public"]).default("tenant"),
   module: z
     .object({
       key: z.string(),
@@ -47,6 +48,7 @@ export const accessScreenSchema = z.object({
   type: z.string(),
   requiredPermissionKey: z.string().nullable().optional(),
   isVisible: z.boolean(),
+  accessScope: z.enum(["tenant", "self", "public"]).default("tenant"),
 });
 
 export const accessModuleSchema = z.object({
@@ -61,6 +63,11 @@ export const accessMatrixSchema = z.object({
   organizationId: z.string(),
   modules: z.array(accessModuleSchema),
   roles: z.array(roleSchema),
+});
+
+export const navigationSchema = z.object({
+  organizationId: z.string(),
+  modules: z.array(accessModuleSchema),
 });
 
 export const createRoleSchema = z.object({
@@ -97,6 +104,8 @@ export type Role = z.infer<typeof roleSchema>;
 export type MemberRoles = z.infer<typeof memberRolesSchema>;
 export type AccessMatrix = z.infer<typeof accessMatrixSchema>;
 export type AccessModule = z.infer<typeof accessModuleSchema>;
+export type AccessScreen = z.infer<typeof accessScreenSchema>;
+export type Navigation = z.infer<typeof navigationSchema>;
 export type CreateRole = z.infer<typeof createRoleSchema>;
 export type CreatePermission = z.infer<typeof createPermissionSchema>;
 export type UpdateRole = z.infer<typeof updateRoleSchema>;

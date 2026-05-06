@@ -119,6 +119,36 @@ export const analyticsDashboardSchema = z.object({
   insights: z.array(analyticsInsightSchema),
 });
 
+export const analyticsSelfDashboardSchema = z.object({
+  generatedAt: z.string(),
+  range: analyticsRangeSchema,
+  memberId: z.string(),
+  invoiced: moneyMetricSchema,
+  collected: moneyMetricSchema,
+  outstanding: moneyMetricSchema,
+  overdue: moneyMetricSchema,
+  paymentStatusBreakdown: z.array(dimensionCountSchema),
+  schedules: z.object({
+    availabilityWindows: z.number(),
+    scheduledDays: z.array(z.number()),
+  }),
+  activity: z.object({
+    unreadNotifications: z.number(),
+    recentNotifications: z
+      .array(
+        z.object({
+          id: z.string(),
+          type: z.string(),
+          title: z.string(),
+          message: z.string(),
+          isRead: z.boolean(),
+          createdAt: z.string(),
+        }),
+      )
+      .default([]),
+  }),
+});
+
 export const analyticsCatalogItemSchema = z.object({
   id: z.string(),
   key: z.string(),
@@ -141,6 +171,7 @@ export type AnalyticsQuery = {
   top?: number;
 };
 export type AnalyticsDashboard = z.infer<typeof analyticsDashboardSchema>;
+export type AnalyticsSelfDashboard = z.infer<typeof analyticsSelfDashboardSchema>;
 export type AnalyticsRevenue = z.infer<typeof analyticsRevenueSchema>;
 export type AnalyticsMembers = z.infer<typeof analyticsMembersSchema>;
 export type AnalyticsOperations = z.infer<typeof analyticsOperationsSchema>;

@@ -2,25 +2,22 @@ import { useState } from "react";
 import {
   BadgeDollarSign,
   CalendarClock,
-  CreditCard,
   ReceiptText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import {
   getBillingNoteLabel,
   getPaymentLabel,
-  getPaymentMethodDescription,
   getPaymentMethodLabel,
   getPaymentStatusLabel,
   getTransactionStatusLabel,
 } from "../utils/billing-copy";
 import {
-  usePaymentMethods,
-  usePayments,
+  useMemberBillingSummary,
+  useMemberPayments,
 } from "../hooks/useBilling";
 
 const money = (value: number, currency = "USD") =>
@@ -51,27 +48,26 @@ const statusTone = (status: string) => {
 };
 
 export function CustomerBillingView() {
-  const { memberId } = useAccessContext();
   const { activeMembership } = useAuth();
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
-  const payments = usePayments(
+  const summaryQuery = useMemberBillingSummary({
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+  const payments = useMemberPayments(
     {
-      memberId: memberId ?? undefined,
       status: selectedStatus === "ALL" ? undefined : (selectedStatus as never),
       sortBy: "dueDate",
       sortDirection: "desc",
       limit: 50,
     },
     {
-      enabled: Boolean(memberId),
       refetchInterval: 5000,
       refetchOnWindowFocus: true,
       staleTime: 0,
     },
   );
-  const paymentMethods = usePaymentMethods(undefined, {
-    enabled: Boolean(memberId),
-  });
 
   const paymentItems = [...(payments.data?.items ?? [])].sort((left, right) => {
     const dueDateDiff =
@@ -93,18 +89,15 @@ export function CustomerBillingView() {
   );
   const overdueItems = paymentItems.filter((payment) => payment.status === "OVERDUE");
   const paidItems = paymentItems.filter((payment) => payment.status === "PAID");
-  const summary = {
-    openBalance: openItems.reduce(
-      (total, payment) => total + parseAmount(payment.balance),
-      0,
+  const summary = summaryQuery.data ?? {
+    openBalance: String(
+      openItems.reduce((total, payment) => total + parseAmount(payment.balance), 0),
     ),
-    overdueBalance: overdueItems.reduce(
-      (total, payment) => total + parseAmount(payment.balance),
-      0,
+    overdueBalance: String(
+      overdueItems.reduce((total, payment) => total + parseAmount(payment.balance), 0),
     ),
-    paidAmount: paidItems.reduce(
-      (total, payment) => total + parseAmount(payment.paidAmount),
-      0,
+    paidThisMonth: String(
+      paidItems.reduce((total, payment) => total + parseAmount(payment.paidAmount), 0),
     ),
   };
 
@@ -132,13 +125,13 @@ export function CustomerBillingView() {
         <SummaryCard
           icon={ReceiptText}
           label="Saldo pendiente"
-          value={money(summary.openBalance, currency)}
+          value={money(parseAmount(summary.openBalance), currency)}
           helper={`${paymentItems.filter((payment) => payment.balance !== "0").length} cobros con saldo`}
         />
         <SummaryCard
           icon={CalendarClock}
           label="Vencido"
-          value={money(summary.overdueBalance, currency)}
+          value={money(parseAmount(summary.overdueBalance), currency)}
           helper={
             nextDuePayment
               ? `Proximo vencimiento: ${formatDate(nextDuePayment.dueDate)}`
@@ -148,12 +141,12 @@ export function CustomerBillingView() {
         <SummaryCard
           icon={BadgeDollarSign}
           label="Pagado"
-          value={money(summary.paidAmount, currency)}
-          helper="Acumulado en tus pagos cerrados"
+          value={money(parseAmount(summary.paidThisMonth), currency)}
+          helper="Pagos acumulados en el periodo actual"
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-6">
         <Card className="rounded-[1.75rem]">
           <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -248,42 +241,6 @@ export function CustomerBillingView() {
             ) : (
               <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
                 No hay cobros para mostrar con el filtro actual.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-[1.75rem]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="size-5 text-primary" />
-              Metodos disponibles
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {paymentMethods.isLoading ? (
-              Array.from({ length: 3 }).map((_, index) => (
-                <Skeleton key={index} className="h-20 rounded-2xl" />
-              ))
-            ) : paymentMethods.data?.length ? (
-              paymentMethods.data.map((method) => (
-                <div key={method.id} className="rounded-2xl border bg-white/70 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{getPaymentMethodLabel(method)}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {getPaymentMethodDescription(method)}
-                      </p>
-                    </div>
-                    <Badge variant="outline">
-                      {method.requiresReference ? "Con referencia" : "Libre"}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-                La organizacion no ha publicado metodos de pago visibles para tu cuenta.
               </div>
             )}
           </CardContent>

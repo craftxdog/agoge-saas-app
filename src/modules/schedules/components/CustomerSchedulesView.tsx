@@ -1,20 +1,14 @@
 import { useState } from "react";
 import {
   CalendarDays,
-  Clock3,
-  MapPin,
   UserRoundCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import {
-  useBusinessHours,
-  useLocations,
-  useMemberSchedules,
-  useScheduleExceptions,
+  useCurrentMemberSchedules,
 } from "../hooks/useSchedules";
 
 const resolveTenantDateParts = (timezone = "America/Managua") => {
@@ -61,38 +55,22 @@ const formatDate = (value: string) => {
 };
 
 export function CustomerSchedulesView() {
-  const { memberId } = useAccessContext();
   const { activeMembership } = useAuth();
-  const [locationId, setLocationId] = useState("");
   const tenantTimezone = activeMembership?.organization.timezone ?? "America/Managua";
-  const { today, dayName, dayOfWeek } = resolveTenantDateParts(tenantTimezone);
-  const locations = useLocations({ isActive: true });
-  const businessHours = useBusinessHours({
-    locationId: locationId || undefined,
-    dayOfWeek,
+  const { today, dayOfWeek } = resolveTenantDateParts(tenantTimezone);
+  const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6>(dayOfWeek);
+  const weeklyMemberSchedules = useCurrentMemberSchedules(undefined, {
+    enabled: true,
   });
-  const exceptions = useScheduleExceptions({
-    locationId: locationId || undefined,
-    dateFrom: today,
-    dateTo: today,
-  });
-  const weeklyMemberSchedules = useMemberSchedules(memberId ?? undefined, {
-    locationId: locationId || undefined,
-  });
-  const todayMemberSchedules = useMemberSchedules(memberId ?? undefined, {
-    locationId: locationId || undefined,
-    dayOfWeek,
+  const todayMemberSchedules = useCurrentMemberSchedules({
+    dayOfWeek: selectedDayOfWeek,
+  }, {
+    enabled: true,
   });
 
   const weeklyAvailability = weeklyMemberSchedules.data ?? [];
   const todayAvailability = todayMemberSchedules.data ?? [];
-  const businessHourItems = businessHours.data ?? [];
-  const exceptionItems = exceptions.data ?? [];
-  const isClosedToday =
-    exceptionItems.some((item) => item.isClosed) ||
-    !businessHourItems.some((item) => !item.isClosed);
-
-  const locationOptions = locations.data ?? [];
+  const scheduledDays = new Set(weeklyAvailability.map((item) => item.dayOfWeek)).size;
 
   return (
     <section className="grid gap-8">
@@ -101,28 +79,37 @@ export function CustomerSchedulesView() {
           Portal de cliente
         </p>
         <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight">
-          Tus horarios y la operacion de hoy
+          Tu disponibilidad personal
         </h1>
         <p className="mt-3 max-w-3xl text-muted-foreground">
-          Consulta tu disponibilidad registrada, las horas operativas del dia y
-          cualquier excepcion activa en {activeMembership?.organization.name}.
+          Consulta solo los bloques de disponibilidad asociados a tu cuenta en{" "}
+          {activeMembership?.organization.name}.
         </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-primary">Agenda efectiva</p>
+          <p className="text-sm font-semibold text-primary">Agenda personal</p>
           <p className="text-sm text-muted-foreground">{formatDate(today)}</p>
         </div>
         <select
           className="h-11 rounded-full border bg-white/70 px-4 text-sm"
-          value={locationId}
-          onChange={(event) => setLocationId(event.target.value)}
+          value={String(selectedDayOfWeek)}
+          onChange={(event) =>
+            setSelectedDayOfWeek(Number(event.target.value) as 0 | 1 | 2 | 3 | 4 | 5 | 6)
+          }
         >
-          <option value="">Todas las sedes</option>
-          {locationOptions.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.name}
+          {[
+            { value: 0, label: "Domingo" },
+            { value: 1, label: "Lunes" },
+            { value: 2, label: "Martes" },
+            { value: 3, label: "Miercoles" },
+            { value: 4, label: "Jueves" },
+            { value: 5, label: "Viernes" },
+            { value: 6, label: "Sabado" },
+          ].map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -140,20 +127,16 @@ export function CustomerSchedulesView() {
           }
         />
         <MetricCard
-          icon={Clock3}
-          label="Ventanas operativas"
-          value={String(businessHourItems.length)}
-          helper={
-            isClosedToday
-              ? "La operacion de hoy figura cerrada"
-              : `${tenantTimezone} · jornada activa`
-          }
+          icon={CalendarDays}
+          label="Bloques semanales"
+          value={String(weeklyAvailability.length)}
+          helper="Ventanas registradas para tu cuenta"
         />
         <MetricCard
           icon={CalendarDays}
-          label="Excepciones proximas"
-          value={String(exceptions.data?.length ?? 0)}
-          helper="Cierres o ajustes especiales informados por la organizacion"
+          label="Dias programados"
+          value={String(scheduledDays)}
+          helper={`${tenantTimezone} · horario local`}
         />
       </div>
 
@@ -195,76 +178,7 @@ export function CustomerSchedulesView() {
         <div className="grid gap-6">
           <Card className="rounded-[1.75rem]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="size-5 text-primary" />
-                Horarios operativos del dia
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {businessHours.isLoading ? (
-                <Skeleton className="h-40 rounded-2xl" />
-              ) : businessHourItems.length ? (
-                businessHourItems.map((item) => (
-                  <div key={item.id} className="rounded-2xl border bg-white/70 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">
-                          {item.location?.name ?? "Operacion general"}
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {item.startTime} - {item.endTime}
-                        </p>
-                      </div>
-                      <Badge variant={item.isClosed ? "destructive" : "outline"}>
-                        {item.isClosed ? "Cerrado" : "Abierto"}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-                  No hay horario operativo publicado para el filtro actual.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[1.75rem]">
-            <CardHeader>
-              <CardTitle>Excepciones y avisos</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {exceptions.isLoading || businessHours.isLoading ? (
-                <Skeleton className="h-40 rounded-2xl" />
-              ) : exceptionItems.length ? (
-                exceptionItems.map((item) => (
-                  <div key={item.id} className="rounded-2xl border bg-white/70 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold">{item.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {item.location?.name ?? "Operacion general"} · {item.date}
-                        </p>
-                      </div>
-                      <Badge variant={item.isClosed ? "destructive" : "outline"}>
-                        {item.isClosed
-                          ? "Cierre"
-                          : `${item.startTime ?? "--"} - ${item.endTime ?? "--"}`}
-                      </Badge>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-                  No hay excepciones activas reportadas en este momento.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[1.75rem]">
-            <CardHeader>
-              <CardTitle>{`Tu disponibilidad de ${dayName}`}</CardTitle>
+              <CardTitle>{`Tu disponibilidad seleccionada`}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
               {todayMemberSchedules.isLoading ? (
@@ -273,16 +187,16 @@ export function CustomerSchedulesView() {
                 todayAvailability.map((item) => (
                   <div key={item.id} className="rounded-2xl border bg-white/70 p-4">
                     <p className="font-semibold">
-                      {item.location?.name ?? "Sin sede asignada"}
+                      {item.dayName}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {item.startTime} - {item.endTime}
+                      {item.location?.name ?? "Sin sede asignada"} · {item.startTime} - {item.endTime}
                     </p>
                   </div>
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-                  No tienes bloques de disponibilidad cargados para hoy.
+                  No tienes bloques de disponibilidad cargados para el dia seleccionado.
                 </div>
               )}
             </CardContent>

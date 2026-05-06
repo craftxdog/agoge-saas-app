@@ -2,6 +2,7 @@ import { http } from "@/shared/api/http";
 import type { ApiResponse } from "@/shared/api/types";
 import type {
   AccessMatrix,
+  Navigation,
   CreatePermission,
   CreateRole,
   MemberRoles,
@@ -68,4 +69,7 @@ export const rbacService = {
 
   getAccessMatrix: () =>
     http.get<ApiResponse<AccessMatrix>>("/rbac/access-matrix"),
+
+  getNavigation: () =>
+    http.get<ApiResponse<Navigation>>("/rbac/navigation"),
 };

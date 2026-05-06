@@ -21,6 +21,7 @@ export const useSwitchOrganization = () => {
       resetNotifications();
 
       await Promise.all([
+        queryClient.resetQueries({ queryKey: ["activity"] }),
         queryClient.resetQueries({ queryKey: ["analytics"] }),
         queryClient.resetQueries({ queryKey: ["audit"] }),
         queryClient.resetQueries({ queryKey: ["billing"] }),

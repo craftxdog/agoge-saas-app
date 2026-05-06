@@ -33,20 +33,30 @@ export const schedulesKeys = {
     [...schedulesKeys.all, "exceptions", query] as const,
   memberSchedules: (memberId?: string, query?: MemberScheduleQuery) =>
     [...schedulesKeys.all, "member-schedules", memberId, query] as const,
+  currentMemberSchedules: (query?: MemberScheduleQuery) =>
+    [...schedulesKeys.all, "current-member-schedules", query] as const,
 };
 
-export const useDaySchedule = (query?: DayScheduleQuery) =>
+export const useDaySchedule = (
+  query?: DayScheduleQuery,
+  options?: { enabled?: boolean },
+) =>
   useQuery({
     queryKey: schedulesKeys.day(query),
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await schedulesService.getDaySchedule(query);
       return dayScheduleSchema.parse(res.data);
     },
   });
 
-export const useLocations = (query?: LocationQuery) =>
+export const useLocations = (
+  query?: LocationQuery,
+  options?: { enabled?: boolean },
+) =>
   useQuery({
     queryKey: schedulesKeys.locations(query),
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await schedulesService.listLocations(query);
       return locationSchema.array().parse(res.data);
@@ -54,9 +64,13 @@ export const useLocations = (query?: LocationQuery) =>
     staleTime: 1000 * 60 * 5,
   });
 
-export const useBusinessHours = (query?: BusinessHourQuery) =>
+export const useBusinessHours = (
+  query?: BusinessHourQuery,
+  options?: { enabled?: boolean },
+) =>
   useQuery({
     queryKey: schedulesKeys.businessHours(query),
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await schedulesService.listBusinessHours(query);
       return businessHourSchema.array().parse(res.data);
@@ -64,9 +78,13 @@ export const useBusinessHours = (query?: BusinessHourQuery) =>
     staleTime: 1000 * 60 * 3,
   });
 
-export const useScheduleExceptions = (query?: ScheduleExceptionQuery) =>
+export const useScheduleExceptions = (
+  query?: ScheduleExceptionQuery,
+  options?: { enabled?: boolean },
+) =>
   useQuery({
     queryKey: schedulesKeys.exceptions(query),
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await schedulesService.listExceptions(query);
       return scheduleExceptionSchema.array().parse(res.data);
@@ -77,12 +95,26 @@ export const useScheduleExceptions = (query?: ScheduleExceptionQuery) =>
 export const useMemberSchedules = (
   memberId?: string,
   query?: MemberScheduleQuery,
+  options?: { enabled?: boolean },
 ) =>
   useQuery({
     queryKey: schedulesKeys.memberSchedules(memberId, query),
-    enabled: Boolean(memberId),
+    enabled: Boolean(memberId) && (options?.enabled ?? true),
     queryFn: async () => {
       const res = await schedulesService.listMemberSchedules(memberId!, query);
+      return memberScheduleSchema.array().parse(res.data);
+    },
+  });
+
+export const useCurrentMemberSchedules = (
+  query?: MemberScheduleQuery,
+  options?: { enabled?: boolean },
+) =>
+  useQuery({
+    queryKey: schedulesKeys.currentMemberSchedules(query),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await schedulesService.listCurrentMemberSchedules(query);
       return memberScheduleSchema.array().parse(res.data);
     },
   });
@@ -294,4 +326,3 @@ export const useDeleteMemberSchedule = () => {
     onError: () => toast.error("No pudimos eliminar la disponibilidad."),
   });
 };
-

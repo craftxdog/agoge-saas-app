@@ -1,8 +1,7 @@
+import type { ComponentType } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  BadgeDollarSign,
-  BarChart3,
   CalendarClock,
   CreditCard,
   FolderKanban,
@@ -10,7 +9,6 @@ import {
   Sparkles,
   TrendingUp,
   TriangleAlert,
-  UsersRound,
   Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,53 +16,31 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   useBillingSummary,
-  usePayments,
+  useMemberBillingSummary,
+  useMemberPayments,
 } from "@/modules/billing/hooks/useBilling";
 import type { BillingSummary, Payment } from "@/modules/billing/schemas/billing.schema";
-import { useAnalyticsDashboard } from "@/modules/analytics/hooks/useAnalyticsDashboard";
+import {
+  useAnalyticsDashboard,
+  useSelfAnalyticsDashboard,
+} from "@/modules/analytics/hooks/useAnalyticsDashboard";
 import type { AnalyticsDashboard as AnalyticsDashboardData } from "@/modules/analytics/schemas/analytics.schema";
+import { useActivity, useActivitySummary } from "@/modules/activity/hooks/useActivity";
 import { useNotificationSummary } from "@/modules/notifications/hooks/useNotifications";
 import { getNotificationTitle } from "@/modules/notifications/utils/notification-copy";
-import { useMemberSchedules } from "@/modules/schedules/hooks/useSchedules";
+import { useCurrentMemberSchedules } from "@/modules/schedules/hooks/useSchedules";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { useSidebarRoutes } from "@/shared/hooks/useSidebarRoutes";
 import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
 import { formatSystemLabel } from "@/shared/utils/labels";
 
-const moduleCards = [
-  {
-    key: "users",
-    permission: "users.read",
-    title: "Miembros",
-    description: "Directorio, invitaciones, roles y estados de membresia.",
-    href: "/app/users",
-    icon: UsersRound,
-  },
-  {
-    key: "billing",
-    permission: "billing.read",
-    title: "Cobros",
-    description: "Conceptos, facturas, metodos y transacciones.",
-    href: "/app/billing",
-    icon: BadgeDollarSign,
-  },
-  {
-    key: "schedules",
-    permission: "schedules.read",
-    title: "Horarios",
-    description: "Sedes, horas operativas y disponibilidad semanal.",
-    href: "/app/schedules",
-    icon: CalendarClock,
-  },
-  {
-    key: "analytics",
-    permission: "analytics.read",
-    title: "Analitica",
-    description: "KPIs, ingresos, crecimiento y operaciones.",
-    href: "/app/analytics",
-    icon: BarChart3,
-  },
-];
+type DashboardRoute = {
+  title: string;
+  url: string;
+  icon: ComponentType<{ className?: string }>;
+  items?: DashboardRoute[];
+};
 
 const formatCurrency = (value: string | number | undefined, currency = "USD") =>
   new Intl.NumberFormat("es-NI", {
@@ -104,50 +80,77 @@ export default function Dashboard() {
     permissions,
     hasPermission,
   } = useAuth();
-  const {
-    isCustomerPortal,
-    memberId,
-    visibleModules: accessibleModules,
-  } = useAccessContext();
+  const { isCustomerPortal } = useAccessContext();
+  const sidebarRoutes = useSidebarRoutes();
   const switchOrganization = useSwitchOrganization();
-  const visibleModules = moduleCards.filter((module) =>
-    accessibleModules.includes(module.key) && hasPermission(module.permission),
-  );
+  const visibleModules = sidebarRoutes as DashboardRoute[];
   const isCustomerExperience = isCustomerPortal;
-  const canReadAnalytics =
-    !isCustomerExperience &&
-    accessibleModules.includes("analytics") &&
-    hasPermission("analytics.read");
-  const canReadBilling =
-    !isCustomerExperience &&
-    accessibleModules.includes("billing") &&
-    hasPermission("billing.read");
-  const canReadNotifications =
-    !isCustomerExperience &&
-    accessibleModules.includes("notifications") &&
-    hasPermission("notifications.read");
+  const canReadAnalytics = hasPermission("analytics.read");
+  const canReadSelfAnalytics = hasPermission("analytics.self.read");
+  const canReadBilling = hasPermission("billing.read");
+  const canReadSelfBilling = hasPermission("billing.self.read");
+  const canReadNotifications = hasPermission("notifications.read");
+  const canReadSelfActivity = hasPermission("notifications.self.read");
+  const canReadSelfSchedules = hasPermission("schedules.self.read");
+  const analyticsHref =
+    visibleModules.find((route) => route.url.includes("/analytics"))?.url ??
+    "/app/analytics/dashboard";
+  const billingHref =
+    visibleModules.find((route) => route.url.includes("/billing"))?.url ??
+    "/app/billing/payments";
+  const schedulesHref =
+    visibleModules.find((route) => route.url.includes("/schedules"))?.url ??
+    "/app/schedules/business-hours";
+  const usersHref =
+    visibleModules.find((route) => route.url.includes("/users"))?.url ??
+    "/app/users/members";
+  const activityHref =
+    visibleModules.find((route) => route.url.includes("/activity"))?.url ??
+    "/app/activity";
 
   const analyticsDashboard = useAnalyticsDashboard(
     { groupBy: "month" },
     { enabled: canReadAnalytics },
   );
+  const selfAnalyticsDashboard = useSelfAnalyticsDashboard(
+    { groupBy: "month", top: 6 },
+    { enabled: isCustomerExperience && canReadSelfAnalytics },
+  );
   const billingSummary = useBillingSummary({
     enabled: canReadBilling,
     staleTime: 1000 * 60,
   });
+  const selfBillingSummary = useMemberBillingSummary({
+    enabled: isCustomerExperience && canReadSelfBilling,
+    staleTime: 1000 * 30,
+  });
   const notificationSummary = useNotificationSummary({
     enabled: canReadNotifications,
   });
-  const customerPayments = usePayments(
+  const activitySummary = useActivitySummary({
+    enabled: isCustomerExperience && canReadSelfActivity,
+  });
+  const activityFeed = useActivity(
     {
-      memberId: memberId ?? undefined,
+      limit: 4,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+    },
+    {
+      enabled: isCustomerExperience && canReadSelfActivity,
+    },
+  );
+  const customerPayments = useMemberPayments(
+    {
       sortBy: "dueDate",
       sortDirection: "desc",
       limit: 8,
     },
-    { enabled: Boolean(memberId) && isCustomerPortal },
+    { enabled: isCustomerExperience && canReadSelfBilling },
   );
-  const customerSchedules = useMemberSchedules(memberId ?? undefined, undefined);
+  const customerSchedules = useCurrentMemberSchedules(undefined, {
+    enabled: isCustomerExperience && canReadSelfSchedules,
+  });
 
   const ownPayments = customerPayments.data?.items ?? [];
   const openPayments = ownPayments.filter(
@@ -158,6 +161,12 @@ export default function Dashboard() {
   );
   const nextDueDate = openPayments[0]?.dueDate;
   const dashboardData = analyticsDashboard.data;
+  const personalActivity =
+    activityFeed.data?.items ??
+    selfAnalyticsDashboard.data?.activity.recentNotifications.map((item) => ({
+      ...item,
+    })) ??
+    [];
   const adminNotifications =
     notificationSummary.data?.recent?.map((item) => ({
       id: item.id,
@@ -227,8 +236,14 @@ export default function Dashboard() {
       overduePayments={overduePayments}
       nextDueDate={nextDueDate}
       scheduleCount={customerSchedules.data?.length ?? 0}
+      unreadActivity={activitySummary.data?.unreadCount ?? 0}
       payments={ownPayments}
+      activityItems={personalActivity}
       modules={visibleModules}
+      summary={selfBillingSummary.data}
+      billingHref={billingHref}
+      schedulesHref={schedulesHref}
+      activityHref={activityHref}
     />
   ) : (
     <AdminDashboard
@@ -238,6 +253,10 @@ export default function Dashboard() {
         .map((role) => formatSystemLabel(role))
         .join(" · ")}
       visibleModules={visibleModules}
+      analyticsHref={analyticsHref}
+      billingHref={billingHref}
+      schedulesHref={schedulesHref}
+      usersHref={usersHref}
       permissionsCount={permissions.length}
       analyticsDashboard={dashboardData}
       analyticsLoading={analyticsDashboard.isLoading}
@@ -253,6 +272,10 @@ function AdminDashboard({
   firstName,
   roleLabel,
   visibleModules,
+  analyticsHref,
+  billingHref,
+  schedulesHref,
+  usersHref,
   permissionsCount,
   analyticsDashboard,
   analyticsLoading,
@@ -263,7 +286,11 @@ function AdminDashboard({
   organizationName: string;
   firstName: string;
   roleLabel: string;
-  visibleModules: typeof moduleCards;
+  visibleModules: DashboardRoute[];
+  analyticsHref: string;
+  billingHref: string;
+  schedulesHref: string;
+  usersHref: string;
   permissionsCount: number;
   analyticsDashboard?: AnalyticsDashboardData;
   analyticsLoading: boolean;
@@ -327,7 +354,7 @@ function AdminDashboard({
       helper: billingSummary
         ? `Saldo comprometido ${formatCurrency(billingSummary.overdueBalance)}`
         : "Conecta billing summary para priorizar cobranza",
-      href: "/app/billing",
+      href: billingHref,
     },
     {
       label: "Agenda operativa",
@@ -335,7 +362,7 @@ function AdminDashboard({
       helper: operations
         ? `${operations.activeLocations}/${operations.totalLocations} sedes activas`
         : "Analitica operativa no disponible",
-      href: "/app/schedules",
+      href: schedulesHref,
     },
     {
       label: "Actividad del equipo",
@@ -343,7 +370,7 @@ function AdminDashboard({
       helper: members
         ? `${members.pendingInvitations} invitacion(es) pendientes`
         : `${permissionsCount} permisos visibles en la sesion`,
-      href: "/app/users",
+      href: usersHref,
     },
   ];
 
@@ -372,13 +399,13 @@ function AdminDashboard({
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild className="rounded-full">
-                <Link to="/app/analytics">
+                <Link to={analyticsHref}>
                   Ver analitica completa
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/app/billing">Atender cobros</Link>
+                <Link to={billingHref}>Atender cobros</Link>
               </Button>
             </div>
           </CardContent>
@@ -496,7 +523,7 @@ function AdminDashboard({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {visibleModules.map((module) => (
-          <Card key={module.key} className="rounded-[1.35rem] border bg-card shadow-sm">
+          <Card key={module.url} className="rounded-[1.35rem] border bg-card shadow-sm">
             <CardHeader className="pb-3">
               <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
                 <module.icon className="size-5" />
@@ -505,10 +532,10 @@ function AdminDashboard({
             </CardHeader>
             <CardContent className="grid gap-4">
               <p className="text-sm leading-6 text-muted-foreground">
-                {module.description}
+                Acceso operativo visible segun la navegacion autorizada por la API.
               </p>
               <Button asChild variant="outline" className="justify-between rounded-xl">
-                <Link to={module.href}>
+                <Link to={module.url}>
                   Abrir modulo
                   <ArrowRight className="size-4" />
                 </Link>
@@ -527,16 +554,33 @@ function CustomerDashboard({
   overduePayments,
   nextDueDate,
   scheduleCount,
+  unreadActivity,
   payments,
+  activityItems,
   modules,
+  summary,
+  billingHref,
+  schedulesHref,
+  activityHref,
 }: {
   firstName: string;
   openPayments: Payment[];
   overduePayments: Payment[];
   nextDueDate?: string;
   scheduleCount: number;
+  unreadActivity: number;
   payments: Payment[];
-  modules: typeof moduleCards;
+  activityItems: Array<{
+    id: string;
+    title: string;
+    message: string;
+    createdAt: string;
+  }>;
+  modules: DashboardRoute[];
+  summary?: BillingSummary;
+  billingHref: string;
+  schedulesHref: string;
+  activityHref: string;
 }) {
   return (
     <section className="grid gap-6">
@@ -560,10 +604,10 @@ function CustomerDashboard({
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild className="rounded-full">
-                <Link to="/app/billing">Revisar mis cobros</Link>
+                <Link to={billingHref}>Revisar mis cobros</Link>
               </Button>
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/app/schedules">Ver mi agenda</Link>
+                <Link to={schedulesHref}>Ver mi agenda</Link>
               </Button>
             </div>
           </CardContent>
@@ -592,11 +636,16 @@ function CustomerDashboard({
               value={`${modules.length} modulo(s)`}
               helper="Solo informacion autorizada para tu perfil"
             />
+            <MiniState
+              label="Actividad nueva"
+              value={`${unreadActivity} aviso(s)`}
+              helper="Eventos personales pendientes por revisar"
+            />
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Cobros pendientes"
           value={String(openPayments.length)}
@@ -614,6 +663,12 @@ function CustomerDashboard({
           value={String(scheduleCount)}
           helper="Horarios visibles para tu membresia"
           icon={CalendarClock}
+        />
+        <MetricCard
+          label="Saldo abierto"
+          value={formatCurrency(summary?.openBalance)}
+          helper="Pendiente total de tu cuenta"
+          icon={Wallet}
         />
       </div>
 
@@ -658,29 +713,61 @@ function CustomerDashboard({
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FolderKanban className="size-5 text-primary" />
-              Accesos rapidos
+              Mi actividad reciente
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            {modules.map((module) => (
-              <Link
-                key={module.key}
-                to={module.href}
-                className="rounded-[1.15rem] border border-border/70 bg-muted/15 px-4 py-4 transition-colors hover:bg-muted/30"
+            {activityItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-[1.15rem] border border-border/70 bg-muted/15 px-4 py-4"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold">{module.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {module.description}
-                    </p>
-                  </div>
-                  <ArrowRight className="size-4 text-muted-foreground" />
-                </div>
-              </Link>
+                <p className="text-sm font-semibold">{item.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{item.message}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {formatDateTime(item.createdAt)}
+                </p>
+              </div>
             ))}
+
+            {!activityItems.length ? (
+              <div className="rounded-[1.15rem] border border-dashed p-4 text-sm text-muted-foreground">
+                No tienes actividad personal reciente por ahora.
+              </div>
+            ) : null}
+
+            <Button asChild variant="outline" className="justify-between rounded-xl">
+              <Link to={activityHref}>
+                Abrir mi actividad
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {modules.map((module) => (
+          <Card key={module.url} className="rounded-[1.35rem] border bg-card shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                <module.icon className="size-5" />
+              </div>
+              <CardTitle className="text-lg">{module.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <p className="text-sm leading-6 text-muted-foreground">
+                Vista disponible segun los permisos activos de tu perfil.
+              </p>
+              <Button asChild variant="outline" className="justify-between rounded-xl">
+                <Link to={module.url}>
+                  Abrir seccion
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </section>
   );

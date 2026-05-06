@@ -7,6 +7,7 @@ import {
 import toast from "react-hot-toast";
 import {
   accessMatrixSchema,
+  navigationSchema,
   type CreatePermission,
   memberRolesSchema,
   permissionSchema,
@@ -27,6 +28,7 @@ export const rbacKeys = {
   memberRoles: (memberId?: string) =>
     [...rbacKeys.all, "member-roles", memberId] as const,
   matrix: () => [...rbacKeys.all, "matrix"] as const,
+  navigation: () => [...rbacKeys.all, "navigation"] as const,
 };
 
 export const useRbacPermissions = (
@@ -93,6 +95,18 @@ export const useRbacAccessMatrix = (options?: { enabled?: boolean }) =>
       return accessMatrixSchema.parse(res.data);
     },
     staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
+
+export const useRbacNavigation = (options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: rbacKeys.navigation(),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await rbacService.getNavigation();
+      return navigationSchema.parse(res.data);
+    },
+    staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
   });
 

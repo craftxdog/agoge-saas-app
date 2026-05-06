@@ -9,9 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  useActivity,
+  useActivitySummary,
+  useMarkActivityAsRead,
+  useMarkAllActivityAsRead,
+} from "@/modules/activity/hooks/useActivity";
 import { useAnalyticsOperations } from "@/modules/analytics/hooks/useAnalyticsResources";
-import { usePayments } from "@/modules/billing/hooks/useBilling";
-import { getPaymentStatusLabel, getPaymentTypeLabel } from "@/modules/billing/utils/billing-copy";
 import {
   useMarkAllNotificationsAsRead,
   useMarkNotificationAsRead,
@@ -62,20 +66,9 @@ const storeLocalReadIds = (
   }
 };
 
-const formatDate = (value?: string | null) => {
-  if (!value) return "Sin fecha";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("es-NI", {
-    dateStyle: "medium",
-  }).format(date);
-};
-
 export function HeaderNotificationCenter() {
   const { activeMembership, permissions, enabledModules } = useAuthStore();
-  const { isCustomerPortal, memberId } = useAccessContext();
+  const { isCustomerPortal } = useAccessContext();
   const { formatDateTime } = useRealtimeNotifications();
   const realtimeNotifications = useNotificationStore((state) => state.items);
   const markLocalAsRead = useNotificationStore((state) => state.markAsRead);
@@ -84,6 +77,10 @@ export function HeaderNotificationCenter() {
     showSuccessToast: false,
   });
   const markInboxItemAsRead = useMarkNotificationAsRead();
+  const markAllActivityAsRead = useMarkAllActivityAsRead({
+    showSuccessToast: false,
+  });
+  const markActivityAsRead = useMarkActivityAsRead();
   const organizationId = activeMembership?.organization.id;
   const localScope = isCustomerPortal ? "customer" : "tenant";
   const localReadStorageKey = getLocalReadStorageKey(organizationId, localScope);
@@ -100,33 +97,34 @@ export function HeaderNotificationCenter() {
     !isCustomerPortal &&
     permissions.includes("notifications.read") &&
     enabledModules.includes("notifications");
+  const canReadActivity =
+    isCustomerPortal && permissions.includes("notifications.self.read");
   const canReadAnalyticsOperations =
     !isCustomerPortal &&
     permissions.includes("analytics.read") &&
     enabledModules.includes("analytics");
 
   const notificationSummary = useNotificationSummary({ enabled: canReadInbox });
+  const activitySummary = useActivitySummary({ enabled: canReadActivity });
+  const activityFeed = useActivity(
+    {
+      limit: 8,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+    },
+    {
+      enabled: canReadActivity,
+    },
+  );
   const operations = useAnalyticsOperations(
     { groupBy: "week" },
     { enabled: canReadAnalyticsOperations },
   );
-  const customerPayments = usePayments(
-    {
-      memberId: memberId ?? undefined,
-      sortBy: "createdAt",
-      sortDirection: "desc",
-      limit: 8,
-    },
-    {
-      enabled: isCustomerPortal && Boolean(memberId),
-      refetchInterval: 15000,
-      refetchOnWindowFocus: true,
-      staleTime: 0,
-    },
-  );
 
   const unreadCount = canReadInbox
     ? notificationSummary.data?.unreadCount ?? 0
+    : canReadActivity
+      ? activitySummary.data?.unreadCount ?? 0
     : canReadAnalyticsOperations
       ? operations.data?.unreadNotifications ?? 0
       : 0;
@@ -138,6 +136,14 @@ export function HeaderNotificationCenter() {
         occurredAt: item.createdAt,
         read: item.isRead,
       }))
+    : canReadActivity
+      ? (activityFeed.data?.items ?? []).map((item) => ({
+          id: item.id,
+          title: getNotificationTitle(item),
+          description: item.message,
+          occurredAt: item.createdAt,
+          read: item.isRead,
+        }))
     : canReadAnalyticsOperations
       ? (operations.data?.recentNotifications ?? []).map((item) => ({
           id: item.id,
@@ -146,52 +152,31 @@ export function HeaderNotificationCenter() {
           occurredAt: item.createdAt,
           read: item.isRead || localReadIds.includes(item.id),
         }))
-      : isCustomerPortal
-        ? (customerPayments.data?.items ?? []).map((payment) => ({
-            id: payment.id,
-            title:
-              payment.status === "PAID"
-                ? "Tu cobro fue actualizado como pagado"
-                : payment.status === "OVERDUE"
-                  ? "Tu cobro requiere atencion"
-                  : "Se registro un cobro en tu cuenta",
-            description: `${getPaymentTypeLabel(payment.paymentType)} · ${getPaymentStatusLabel(
-              payment.status,
-            ).toLowerCase()} · vence ${formatDate(payment.dueDate)}`,
-            occurredAt: payment.updatedAt ?? payment.createdAt,
-            read: localReadIds.includes(payment.id),
-          }))
-        : realtimeNotifications
-            .slice(0, 8)
-            .map((item) => ({
-              ...item,
-              read: item.read || localReadIds.includes(item.id),
-            }));
+      : realtimeNotifications.slice(0, 8).map((item) => ({
+          ...item,
+          read: item.read || localReadIds.includes(item.id),
+        }));
   const pendingNotifications = useMemo(
     () => recentNotifications.filter((notification) => !notification.read),
     [recentNotifications],
   );
-  const badgeCount = canReadInbox ? unreadCount : pendingNotifications.length;
-  const feedNotifications =
-    pendingNotifications.length > 0
-      ? pendingNotifications
-      : !isCustomerPortal && badgeCount > 0
-        ? recentNotifications
-        : [];
+  const badgeCount =
+    canReadInbox || canReadActivity ? unreadCount : pendingNotifications.length;
+  const feedNotifications = pendingNotifications;
   const summaryLabel = canReadInbox
     ? "Inbox compartido"
+    : canReadActivity
+      ? "Actividad personal"
     : canReadAnalyticsOperations
       ? "Resumen operativo"
-      : isCustomerPortal
-        ? "Cobros de tu cuenta"
-        : "Eventos en tiempo real";
+      : "Eventos en tiempo real";
   const isLoadingFeed = canReadInbox
     ? notificationSummary.isLoading
+    : canReadActivity
+      ? activityFeed.isLoading
     : canReadAnalyticsOperations
       ? operations.isLoading
-      : isCustomerPortal
-        ? customerPayments.isLoading
-        : false;
+      : false;
 
   const persistLocalReadIds = (nextIds: string[]) => {
     storeLocalReadIds(organizationId, nextIds, localScope);
@@ -229,8 +214,8 @@ export function HeaderNotificationCenter() {
             <div>
               <p className="text-sm font-semibold">Centro de actividad</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {isCustomerPortal
-                  ? "Tus cambios recientes y movimiento relevante de cobros."
+                {canReadActivity
+                  ? "Tus eventos personales permanecen aqui hasta que los leas o marques."
                   : "Actividad operativa y notificaciones de la organizacion activa."}
               </p>
             </div>
@@ -244,11 +229,6 @@ export function HeaderNotificationCenter() {
             <Badge variant="outline" className="rounded-full">
               {badgeCount > 0 ? `${badgeCount} nuevas` : "Bandeja limpia"}
             </Badge>
-            {isCustomerPortal ? (
-              <Badge variant="outline" className="rounded-full">
-                Miembro {memberId ?? "sin contexto"}
-              </Badge>
-            ) : null}
           </div>
         </div>
 
@@ -285,11 +265,16 @@ export function HeaderNotificationCenter() {
                   />
                 ))
               : feedNotifications.map((item) => {
-                  const isRealtimeOnly = !canReadInbox && !canReadAnalyticsOperations;
-                  const canMarkItem = canReadInbox || isRealtimeOnly;
+                  const isRealtimeOnly =
+                    !canReadInbox && !canReadActivity && !canReadAnalyticsOperations;
+                  const canMarkItem = canReadInbox || canReadActivity || isRealtimeOnly;
                   const isItemPending =
-                    markInboxItemAsRead.isPending &&
-                    markInboxItemAsRead.variables === item.id;
+                    (canReadInbox &&
+                      markInboxItemAsRead.isPending &&
+                      markInboxItemAsRead.variables === item.id) ||
+                    (canReadActivity &&
+                      markActivityAsRead.isPending &&
+                      markActivityAsRead.variables === item.id);
 
                   return (
                     <article
@@ -323,6 +308,11 @@ export function HeaderNotificationCenter() {
                             onClick={() => {
                               if (canReadInbox) {
                                 markInboxItemAsRead.mutate(item.id);
+                                return;
+                              }
+
+                              if (canReadActivity) {
+                                markActivityAsRead.mutate(item.id);
                                 return;
                               }
 
@@ -378,6 +368,18 @@ export function HeaderNotificationCenter() {
                 <CheckCheck className="size-4" />
                 Marcar todo
               </Button>
+            ) : canReadActivity ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-full"
+                disabled={!pendingNotifications.length || markAllActivityAsRead.isPending}
+                onClick={() => markAllActivityAsRead.mutate()}
+              >
+                <CheckCheck className="size-4" />
+                Marcar todo
+              </Button>
             ) : pendingNotifications.length ? (
               <Button
                 type="button"
@@ -401,9 +403,13 @@ export function HeaderNotificationCenter() {
               </Button>
             ) : null}
 
-            {!isCustomerPortal && canReadInbox ? (
+            {canReadInbox ? (
               <Button asChild variant="outline" size="sm" className="rounded-full">
                 <Link to="/app/notifications">Abrir bandeja</Link>
+              </Button>
+            ) : canReadActivity ? (
+              <Button asChild variant="outline" size="sm" className="rounded-full">
+                <Link to="/app/activity">Abrir actividad</Link>
               </Button>
             ) : null}
           </div>

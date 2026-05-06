@@ -42,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { formatSystemLabel } from "@/shared/utils/labels";
+import { CustomerAnalyticsView } from "../components/CustomerAnalyticsView";
 import { useAnalyticsDashboard } from "../hooks/useAnalyticsDashboard";
 import {
   useAnalyticsCatalog,
@@ -73,17 +74,36 @@ const formatBucket = (bucket: string) => {
 };
 
 export const AnalyticsDashboard = () => {
-  const { activeMembership } = useAuth();
+  const { activeMembership, hasPermission } = useAuth();
+  const canReadTenantAnalytics = hasPermission("analytics.read");
+  const canReadSelfAnalytics = hasPermission("analytics.self.read");
   const [groupBy, setGroupBy] = useState<AnalyticsGroupBy>("day");
   const [activeTab, setActiveTab] = useState("overview");
   const query = { groupBy, top: 6 };
-  const dashboard = useAnalyticsDashboard(query);
-  const revenue = useAnalyticsRevenue(query, { enabled: activeTab === "revenue" });
-  const members = useAnalyticsMembers(query, { enabled: activeTab === "members" });
-  const operations = useAnalyticsOperations(query, {
-    enabled: activeTab === "operations",
+  const dashboard = useAnalyticsDashboard(query, {
+    enabled: canReadTenantAnalytics,
   });
-  const catalog = useAnalyticsCatalog({ enabled: activeTab === "catalog" });
+  const revenue = useAnalyticsRevenue(query, {
+    enabled: canReadTenantAnalytics && activeTab === "revenue",
+  });
+  const members = useAnalyticsMembers(query, {
+    enabled: canReadTenantAnalytics && activeTab === "members",
+  });
+  const operations = useAnalyticsOperations(query, {
+    enabled: canReadTenantAnalytics && activeTab === "operations",
+  });
+  const catalog = useAnalyticsCatalog({
+    enabled: canReadTenantAnalytics && activeTab === "catalog",
+  });
+
+  if (!canReadTenantAnalytics && canReadSelfAnalytics) {
+    return <CustomerAnalyticsView />;
+  }
+
+  if (!canReadTenantAnalytics) {
+    return null;
+  }
+
   const data = dashboard.data;
   const currency =
     data?.revenue.collected.currency ??

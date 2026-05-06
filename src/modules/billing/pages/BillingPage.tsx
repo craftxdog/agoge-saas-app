@@ -36,7 +36,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { CursorPagination } from "@/shared/components/CursorPagination";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
-import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
@@ -161,8 +160,9 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
   ) as Partial<T>;
 
 export default function BillingPage() {
-  const { isCustomerPortal } = useAccessContext();
   const { hasPermission } = useAuth();
+  const canReadTenantBilling = hasPermission("billing.read");
+  const canReadSelfBilling = hasPermission("billing.self.read");
   const [activeTab, setActiveTab] = useState("payments");
   const [catalogSearch, setCatalogSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
@@ -185,7 +185,7 @@ export default function BillingPage() {
     hasPermission("billing.override") ||
     hasPermission("billing.write");
 
-  const summary = useBillingSummary();
+  const summary = useBillingSummary({ enabled: canReadTenantBilling });
   const members = useMembers({
     search: debouncedMemberSearch || undefined,
     status: "ACTIVE",
@@ -193,17 +193,17 @@ export default function BillingPage() {
     sortBy: "createdAt",
     sortDirection: "desc",
   }, {
-    enabled: activeTab === "payments",
+    enabled: canReadTenantBilling && activeTab === "payments",
   });
   const paymentTypes = usePaymentTypes({
     search: debouncedCatalogSearch || undefined,
   }, {
-    enabled: activeTab === "payments" || activeTab === "types",
+    enabled: canReadTenantBilling && (activeTab === "payments" || activeTab === "types"),
   });
   const paymentMethods = usePaymentMethods({
     search: debouncedCatalogSearch || undefined,
   }, {
-    enabled: activeTab === "transactions" || activeTab === "methods",
+    enabled: canReadTenantBilling && (activeTab === "transactions" || activeTab === "methods"),
   });
   const payments = usePayments({
     status: paymentStatus,
@@ -212,13 +212,13 @@ export default function BillingPage() {
     sortBy: "dueDate",
     sortDirection: "desc",
   }, {
-    enabled: activeTab === "payments" || activeTab === "transactions",
+    enabled: canReadTenantBilling && (activeTab === "payments" || activeTab === "transactions"),
   });
   const paymentDetail = usePayment(selectedPaymentId || undefined, {
-    enabled: activeTab === "transactions",
+    enabled: canReadTenantBilling && activeTab === "transactions",
   });
   const transactions = usePaymentTransactions(selectedPaymentId || undefined, undefined, {
-    enabled: activeTab === "transactions",
+    enabled: canReadTenantBilling && activeTab === "transactions",
   });
   const createPaymentType = useCreatePaymentType();
   const updatePaymentType = useUpdatePaymentType();
@@ -257,8 +257,12 @@ export default function BillingPage() {
       .includes(search);
   });
 
-  if (isCustomerPortal) {
+  if (!canReadTenantBilling && canReadSelfBilling) {
     return <CustomerBillingView />;
+  }
+
+  if (!canReadTenantBilling) {
+    return null;
   }
 
   return (

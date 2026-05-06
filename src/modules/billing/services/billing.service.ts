@@ -41,6 +41,9 @@ const withQuery = (
 };
 
 export const billingService = {
+  getMemberSummary: () =>
+    http.get<ApiResponse<BillingSummary>>("/billing/me/summary"),
+
   getSummary: () => http.get<ApiResponse<BillingSummary>>("/billing/summary"),
 
   listPaymentTypes: (query?: BillingCatalogQuery) =>
@@ -90,11 +93,17 @@ export const billingService = {
   listPayments: (query?: PaymentQuery) =>
     http.get<ApiResponse<Payment[]>>(withQuery("/billing/payments", query)),
 
+  listMemberPayments: (query?: PaymentQuery) =>
+    http.get<ApiResponse<Payment[]>>(withQuery("/billing/me/payments", query)),
+
   createPayment: (data: CreatePayment) =>
     http.post<ApiResponse<Payment>, CreatePayment>("/billing/payments", data),
 
   getPayment: (paymentId: string) =>
     http.get<ApiResponse<Payment>>(`/billing/payments/${paymentId}`),
+
+  getMemberPayment: (paymentId: string) =>
+    http.get<ApiResponse<Payment>>(`/billing/me/payments/${paymentId}`),
 
   updatePayment: (paymentId: string, data: UpdatePayment) =>
     http.patch<ApiResponse<Payment>, UpdatePayment>(
@@ -107,10 +116,14 @@ export const billingService = {
       withQuery(`/billing/payments/${paymentId}/transactions`, query),
     ),
 
+  listMemberTransactions: (paymentId: string, query?: PaymentTransactionQuery) =>
+    http.get<ApiResponse<PaymentTransaction[]>>(
+      withQuery(`/billing/me/payments/${paymentId}/transactions`, query),
+    ),
+
   createTransaction: (paymentId: string, data: CreatePaymentTransaction) =>
     http.post<ApiResponse<Payment>, CreatePaymentTransaction>(
       `/billing/payments/${paymentId}/transactions`,
       data,
     ),
 };
-

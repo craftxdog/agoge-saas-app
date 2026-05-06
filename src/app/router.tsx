@@ -16,6 +16,7 @@ import SchedulesPage from "@/modules/schedules/pages/SchedulesPage";
 import BillingPage from "@/modules/billing/pages/BillingPage";
 import AuditPage from "@/modules/audit/pages/AuditPage";
 import NotificationsPage from "@/modules/notifications/pages/NotificationsPage";
+import ActivityPage from "@/modules/activity/pages/ActivityPage";
 import ErrorPage from "@/shared/pages/error-page";
 import NotFoundPage from "@/shared/pages/not-found";
 
@@ -59,6 +60,10 @@ export const AppRouter = createBrowserRouter([
       },
       {
         path: "users",
+        element: <Navigate to="/app/users/members" replace />,
+      },
+      {
+        path: "users/members",
         element: (
           <ProtectedRoute
             requireTenant
@@ -72,11 +77,27 @@ export const AppRouter = createBrowserRouter([
       },
       {
         path: "billing",
+        element: <Navigate to="/app/billing/payments" replace />,
+      },
+      {
+        path: "billing/payments",
         element: (
           <ProtectedRoute
             requireTenant
             requiredModules={["billing"]}
-            requiredPermissions={["billing.read"]}
+            requiredPermissionsAny={["billing.read", "billing.self.read"]}
+          >
+            <BillingPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "billing/me/payments",
+        element: (
+          <ProtectedRoute
+            requireTenant
+            requiredModules={["billing"]}
+            requiredPermissionsAny={["billing.read", "billing.self.read"]}
           >
             <BillingPage />
           </ProtectedRoute>
@@ -84,12 +105,27 @@ export const AppRouter = createBrowserRouter([
       },
       {
         path: "analytics",
+        element: <Navigate to="/app/analytics/dashboard" replace />,
+      },
+      {
+        path: "analytics/dashboard",
         element: (
           <ProtectedRoute
             requireTenant
             requiredModules={["analytics"]}
-            requiredPermissions={["analytics.read"]}
-            allowCustomerPortal={false}
+            requiredPermissionsAny={["analytics.read", "analytics.self.read"]}
+          >
+            <AnalyticsDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "analytics/me/dashboard",
+        element: (
+          <ProtectedRoute
+            requireTenant
+            requiredModules={["analytics"]}
+            requiredPermissionsAny={["analytics.read", "analytics.self.read"]}
           >
             <AnalyticsDashboard />
           </ProtectedRoute>
@@ -97,11 +133,27 @@ export const AppRouter = createBrowserRouter([
       },
       {
         path: "schedules",
+        element: <Navigate to="/app/schedules/business-hours" replace />,
+      },
+      {
+        path: "schedules/business-hours",
         element: (
           <ProtectedRoute
             requireTenant
             requiredModules={["schedules"]}
-            requiredPermissions={["schedules.read"]}
+            requiredPermissionsAny={["schedules.read", "schedules.self.read"]}
+          >
+            <SchedulesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "schedules/me/availability",
+        element: (
+          <ProtectedRoute
+            requireTenant
+            requiredModules={["schedules"]}
+            requiredPermissionsAny={["schedules.read", "schedules.self.read"]}
           >
             <SchedulesPage />
           </ProtectedRoute>
@@ -121,7 +173,22 @@ export const AppRouter = createBrowserRouter([
         ),
       },
       {
+        path: "activity",
+        element: (
+          <ProtectedRoute
+            requireTenant
+            requiredPermissionsAny={["notifications.self.read"]}
+          >
+            <ActivityPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "rbac",
+        element: <Navigate to="/app/settings/roles" replace />,
+      },
+      {
+        path: "settings/roles",
         element: (
           <ProtectedRoute
             requireTenant
@@ -135,6 +202,10 @@ export const AppRouter = createBrowserRouter([
       },
       {
         path: "audit",
+        element: <Navigate to="/app/audit/activity" replace />,
+      },
+      {
+        path: "audit/activity",
         element: (
           <ProtectedRoute
             requireTenant
@@ -148,6 +219,23 @@ export const AppRouter = createBrowserRouter([
       },
       {
         path: "settings",
+        element: <Navigate to="/app/settings/general" replace />,
+      },
+      {
+        path: "settings/general",
+        element: (
+          <ProtectedRoute
+            requireTenant
+            requiredModules={["settings"]}
+            requiredPermissions={["settings.read"]}
+            allowCustomerPortal={false}
+          >
+            <CompanySettingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "settings/modules",
         element: (
           <ProtectedRoute
             requireTenant

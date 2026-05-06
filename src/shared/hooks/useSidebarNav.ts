@@ -1,7 +1,8 @@
 import { useLocation } from "react-router-dom";
 import { useSidebarRoutes } from "./useSidebarRoutes";
 import type { SidebarNavItem } from "@/shared/types/SidebarNavItem";
-import type { AppRoute } from "@/shared/types/AppRoute.type";
+
+type SidebarRoute = ReturnType<typeof useSidebarRoutes>[number];
 
 export const useSidebarNav = () => {
   const routes = useSidebarRoutes();
@@ -21,20 +22,18 @@ export const useSidebarNav = () => {
     );
   };
 
-  const mapRoutes = (routes: AppRoute[], parentPath = "/app"): SidebarNavItem[] => {
+  const mapRoutes = (routes: SidebarRoute[]): SidebarNavItem[] => {
     return routes.map((route) => {
-      const fullPath = route.path
-        ? `${parentPath}/${route.path}`.replace(/\/+/g, "/")
-        : parentPath;
+      const fullPath = route.url;
 
       return {
-        title: route.label,
+        title: route.title,
         url: fullPath,
         icon: route.icon,
         isActive: isRouteActive(fullPath),
         items:
-          route.children && route.children.length > 0
-            ? mapRoutes(route.children, fullPath)
+          route.items && route.items.length > 0
+            ? mapRoutes(route.items)
             : undefined,
       };
     });

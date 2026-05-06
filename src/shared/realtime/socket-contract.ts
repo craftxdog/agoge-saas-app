@@ -9,6 +9,7 @@ export type RealtimeCoreEventName = (typeof realtimeCoreEvents)[number];
 export type RealtimeDomainEventName = `${string}.${string}.${string}`;
 export type RealtimeEventName = RealtimeCoreEventName | RealtimeDomainEventName;
 export type RealtimeQueryKeyRoot =
+  | "activity"
   | "analytics"
   | "audit"
   | "billing"
@@ -74,6 +75,8 @@ export type ClientToServerEvents = {
 };
 
 const realtimeInvalidateRootMap: Record<string, RealtimeQueryKeyRoot> = {
+  "activity.feed": "activity",
+  "activity.summary": "activity",
   "analytics.catalog": "analytics",
   "analytics.dashboard": "analytics",
   "analytics.members": "analytics",

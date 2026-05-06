@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
-import { useAccessContext } from "@/shared/hooks/useAccessContext";
+import { useAuth } from "@/shared/hooks/useAuth";
 import { useMembers } from "@/modules/users/hooks/useUsers";
 import { CustomerSchedulesView } from "../components/CustomerSchedulesView";
 import {
@@ -89,7 +89,9 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
   ) as Partial<T>;
 
 export default function SchedulesPage() {
-  const { isCustomerPortal } = useAccessContext();
+  const { hasPermission } = useAuth();
+  const canReadTenantSchedules = hasPermission("schedules.read");
+  const canReadSelfSchedules = hasPermission("schedules.self.read");
   const [locationSearch, setLocationSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [dayDate, setDayDate] = useState(today);
@@ -102,26 +104,38 @@ export default function SchedulesPage() {
 
   const locations = useLocations({
     search: locationSearch || undefined,
+  }, {
+    enabled: canReadTenantSchedules,
   });
   const daySchedule = useDaySchedule({
     date: dayDate,
     locationId: dayLocationId || undefined,
+  }, {
+    enabled: canReadTenantSchedules,
   });
   const businessHours = useBusinessHours({
     locationId: locationFilter || undefined,
+  }, {
+    enabled: canReadTenantSchedules,
   });
   const exceptions = useScheduleExceptions({
     locationId: locationFilter || undefined,
     dateFrom: today,
+  }, {
+    enabled: canReadTenantSchedules,
   });
   const members = useMembers({
     status: "ACTIVE",
     limit: 100,
     sortBy: "createdAt",
     sortDirection: "desc",
+  }, {
+    enabled: canReadTenantSchedules,
   });
   const memberSchedules = useMemberSchedules(memberId || undefined, {
     locationId: locationFilter || undefined,
+  }, {
+    enabled: canReadTenantSchedules,
   });
 
   const createLocation = useCreateLocation();
@@ -141,8 +155,12 @@ export default function SchedulesPage() {
 
   const locationOptions = locations.data ?? [];
 
-  if (isCustomerPortal) {
+  if (!canReadTenantSchedules && canReadSelfSchedules) {
     return <CustomerSchedulesView />;
+  }
+
+  if (!canReadTenantSchedules) {
+    return null;
   }
 
   return (

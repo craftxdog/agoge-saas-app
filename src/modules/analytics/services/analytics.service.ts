@@ -7,6 +7,7 @@ import type {
   AnalyticsRevenue,
   AnalyticsMembers,
   AnalyticsOperations,
+  AnalyticsSelfDashboard,
 } from "../schemas/analytics.schema";
 
 const toSearchParams = (query?: AnalyticsQuery) => {
@@ -26,6 +27,11 @@ const withQuery = (path: string, query?: AnalyticsQuery) => {
 };
 
 export const analyticsService = {
+  getSelfDashboard: (query?: AnalyticsQuery) =>
+    http.get<ApiResponse<AnalyticsSelfDashboard>>(
+      withQuery("/analytics/me/dashboard", query),
+    ),
+
   getDashboard: (query?: AnalyticsQuery) =>
     http.get<ApiResponse<AnalyticsDashboard>>(withQuery("/analytics/dashboard", query)),
 
