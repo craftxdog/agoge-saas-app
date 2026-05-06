@@ -1,26 +1,41 @@
 import { useLocation } from "react-router-dom";
-import { useSidebarNav } from "./useSidebarNav";
-import type { SidebarNavItem } from "@/shared/types/SidebarNavItem";
+import { useNavigationContext } from "@/shared/providers/navigation-provider";
+
+const internalCrumbs: Record<string, Array<{ title: string; url: string }>> = {
+  "/app": [{ title: "Dashboard", url: "/app" }],
+  "/app/profile": [
+    { title: "Dashboard", url: "/app" },
+    { title: "Perfil", url: "/app/profile" },
+  ],
+  "/app/restricted": [
+    { title: "Dashboard", url: "/app" },
+    { title: "Acceso restringido", url: "/app/restricted" },
+  ],
+};
 
 export const useBreadcrumbs = () => {
-  const nav = useSidebarNav();
   const location = useLocation();
+  const { findScreen, getModule } = useNavigationContext();
+  const screen = findScreen(location.pathname);
 
-  const findPath = (
-    items: SidebarNavItem[],
-    path: string,
-    parents: SidebarNavItem[] = []
-  ): SidebarNavItem[] => {
-    for (const item of items) {
-      if (item.url === path) return [...parents, item];
+  if (!screen) {
+    return internalCrumbs[location.pathname] ?? [];
+  }
 
-      if (item.items) {
-        const found = findPath(item.items, path, [...parents, item]);
-        if (found.length) return found;
-      }
-    }
-    return [];
-  };
+  const module = getModule(screen.moduleKey);
 
-  return findPath(nav, location.pathname);
+  if (!module || module.screens.length <= 1 || module.primaryPath === screen.fullPath) {
+    return [{ title: screen.title, url: screen.fullPath }];
+  }
+
+  return [
+    {
+      title: module.name,
+      url: module.primaryPath ?? screen.fullPath,
+    },
+    {
+      title: screen.title,
+      url: screen.fullPath,
+    },
+  ];
 };

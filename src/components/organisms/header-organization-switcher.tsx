@@ -12,17 +12,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
+import { useNavigationContext } from "@/shared/providers/navigation-provider";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { formatSystemLabel } from "@/shared/utils/labels";
 
 export function HeaderOrganizationSwitcher() {
   const { activeMembership, memberships } = useAuthStore();
   const { isCustomerPortal } = useAccessContext();
+  const { getModulePrimaryPath, defaultPath } = useNavigationContext();
   const switchOrganization = useSwitchOrganization();
   const organizationName = activeMembership?.organization.name ?? "Sin organizacion";
   const hasMultipleMemberships = memberships.length > 1;
+  const organizationPath = getModulePrimaryPath("settings") ?? defaultPath;
 
-  if (isCustomerPortal || !hasMultipleMemberships) {
+  if (!hasMultipleMemberships) {
     return (
       <Button
         asChild={!isCustomerPortal}
@@ -36,7 +39,7 @@ export function HeaderOrganizationSwitcher() {
             <span className="truncate">{organizationName}</span>
           </span>
         ) : (
-          <Link to="/app/settings" className="inline-flex items-center gap-2">
+          <Link to={organizationPath} className="inline-flex items-center gap-2">
             <Building2 className="size-4" />
             <span className="truncate">{organizationName}</span>
           </Link>

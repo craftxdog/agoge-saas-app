@@ -9,7 +9,7 @@ import {
   ReceiptText,
   WalletCards,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -159,11 +159,21 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
     Object.entries(payload).filter(([, value]) => value !== ""),
   ) as Partial<T>;
 
-export default function BillingPage() {
+type BillingPageProps = {
+  initialTab?: "payments" | "transactions" | "types" | "methods";
+  surface?: "workspace" | "settings";
+};
+
+type BillingTab = NonNullable<BillingPageProps["initialTab"]>;
+
+export default function BillingPage({
+  initialTab = "payments",
+  surface = "workspace",
+}: BillingPageProps) {
   const { hasPermission } = useAuth();
   const canReadTenantBilling = hasPermission("billing.read");
   const canReadSelfBilling = hasPermission("billing.self.read");
-  const [activeTab, setActiveTab] = useState("payments");
+  const [activeTab, setActiveTab] = useState<BillingTab>(initialTab);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [paymentSearch, setPaymentSearch] = useState("");
@@ -184,6 +194,11 @@ export default function BillingPage() {
     hasPermission("billing.cancel") ||
     hasPermission("billing.override") ||
     hasPermission("billing.write");
+  const isSettingsSurface = surface === "settings";
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const summary = useBillingSummary({ enabled: canReadTenantBilling });
   const members = useMembers({
@@ -261,6 +276,10 @@ export default function BillingPage() {
     return <CustomerBillingView />;
   }
 
+  if (isSettingsSurface && !canReadTenantBilling && canWriteBilling) {
+    return <BillingSettingsPlaceholder />;
+  }
+
   if (!canReadTenantBilling) {
     return null;
   }
@@ -269,14 +288,17 @@ export default function BillingPage() {
     <section className="grid gap-8">
       <div className="rounded-[2rem] border bg-[linear-gradient(135deg,_rgba(217,154,95,0.18),_rgba(79,143,131,0.12))] p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
-          Billing operativo
+          {isSettingsSurface ? "Configuracion de billing" : "Billing operativo"}
         </p>
         <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight">
-          Cobros, conceptos, metodos y transacciones
+          {isSettingsSurface
+            ? "Catalogos, metodos y reglas de cobro"
+            : "Cobros, conceptos, metodos y transacciones"}
         </h1>
         <p className="mt-3 max-w-3xl text-muted-foreground">
-          Administra todos los endpoints del modulo billing con selects guiados
-          para miembros, conceptos de cobro y metodos de pago.
+          {isSettingsSurface
+            ? "Esta superficie usa la ruta oficial del backend para concentrar los catalogos y configuraciones operativas del modulo de cobros."
+            : "Administra todos los endpoints del modulo billing con selects guiados para miembros, conceptos de cobro y metodos de pago."}
         </p>
       </div>
 
@@ -306,7 +328,11 @@ export default function BillingPage() {
         </div>
       ) : null}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as BillingTab)}
+        className="gap-6"
+      >
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="payments" className="rounded-xl px-4 py-2">
             Cobros
@@ -1254,6 +1280,41 @@ function CatalogForm({
       </label>
       <Button className="w-fit rounded-full">Guardar</Button>
     </form>
+  );
+}
+
+function BillingSettingsPlaceholder() {
+  return (
+    <section className="grid gap-8">
+      <div className="rounded-[2rem] border bg-[linear-gradient(135deg,_rgba(217,154,95,0.18),_rgba(79,143,131,0.12))] p-8 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">
+          Configuracion de billing
+        </p>
+        <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight">
+          La ruta ya esta alineada con el backend
+        </h1>
+        <p className="mt-3 max-w-3xl text-muted-foreground">
+          Esta pantalla queda conectada al contrato de navegacion real aunque tu
+          sesion actual no tenga acceso de lectura tenant completo.
+        </p>
+      </div>
+
+      <Card className="rounded-[1.75rem]">
+        <CardContent className="grid gap-4 p-6">
+          <p className="font-semibold">Estado del wiring</p>
+          <p className="text-sm text-muted-foreground">
+            La ruta <code>/app/billing/settings</code> ya no cae en 404 falso y
+            su visibilidad depende solo de{" "}
+            <code>GET /api/v1/rbac/navigation</code>.
+          </p>
+          <div className="rounded-[1.25rem] border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            Si la membership actual tiene <code>billing.write</code> pero no
+            lectura tenant adicional, dejamos la superficie, el layout y el
+            guard correctos sin asumir permisos extra.
+          </div>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 

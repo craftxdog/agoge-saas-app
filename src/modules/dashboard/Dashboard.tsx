@@ -33,6 +33,7 @@ import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useSidebarRoutes } from "@/shared/hooks/useSidebarRoutes";
 import { useSwitchOrganization } from "@/shared/hooks/useSwitchOrganization";
+import { useNavigationContext } from "@/shared/providers/navigation-provider";
 import { formatSystemLabel } from "@/shared/utils/labels";
 
 type DashboardRoute = {
@@ -81,6 +82,7 @@ export default function Dashboard() {
     hasPermission,
   } = useAuth();
   const { isCustomerPortal } = useAccessContext();
+  const { defaultPath } = useNavigationContext();
   const sidebarRoutes = useSidebarRoutes();
   const switchOrganization = useSwitchOrganization();
   const visibleModules = sidebarRoutes as DashboardRoute[];
@@ -94,19 +96,19 @@ export default function Dashboard() {
   const canReadSelfSchedules = hasPermission("schedules.self.read");
   const analyticsHref =
     visibleModules.find((route) => route.url.includes("/analytics"))?.url ??
-    "/app/analytics/dashboard";
+    defaultPath;
   const billingHref =
     visibleModules.find((route) => route.url.includes("/billing"))?.url ??
-    "/app/billing/payments";
+    defaultPath;
   const schedulesHref =
     visibleModules.find((route) => route.url.includes("/schedules"))?.url ??
-    "/app/schedules/business-hours";
+    defaultPath;
   const usersHref =
     visibleModules.find((route) => route.url.includes("/users"))?.url ??
-    "/app/users/members";
+    defaultPath;
   const activityHref =
     visibleModules.find((route) => route.url.includes("/activity"))?.url ??
-    "/app/activity";
+    defaultPath;
 
   const analyticsDashboard = useAnalyticsDashboard(
     { groupBy: "month" },

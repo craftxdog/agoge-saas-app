@@ -87,12 +87,19 @@ type PreferencePreset = {
   options?: { label: string; value: string }[];
 };
 
-export default function CompanySettingsPage() {
+type CompanySettingsPageProps = {
+  initialTab?: "company" | "branding" | "modules" | "screens" | "preferences";
+};
+
+export default function CompanySettingsPage({
+  initialTab = "company",
+}: CompanySettingsPageProps) {
   const { activeMembership } = useAuth();
   const organization = useOrganizationProfile();
   const modules = useOrganizationModules();
   const screens = useOrganizationScreens();
   const [preferencesNamespace, setPreferencesNamespace] = useState("billing");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const preferences = useOrganizationPreferences(preferencesNamespace);
   const profileMutation = useUpdateOrganizationProfile();
   const brandingMutation = useUpdateOrganizationBranding();
@@ -164,6 +171,10 @@ export default function CompanySettingsPage() {
         organization.data.branding?.accentColor ?? defaultBranding.accentColor,
     });
   }, [brandingForm, organization.data, profileForm]);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const preferencePresetGroups = buildPreferencePresets({
     currency: organization.data?.defaultCurrency ?? "USD",
@@ -262,7 +273,7 @@ export default function CompanySettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="company" className="gap-6">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="gap-6">
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="company" className="rounded-xl px-4 py-2">
             Empresa

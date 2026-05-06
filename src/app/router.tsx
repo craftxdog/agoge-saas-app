@@ -1,6 +1,11 @@
+import type { ReactNode } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppLayout } from "./Layout/AppLayout";
-import { ProtectedRoute } from "../shared/components/ProtectedRoute";
+import {
+  AuthorizedScreenRoute,
+  ModuleLandingRoute,
+  ProtectedRoute,
+} from "../shared/components/ProtectedRoute";
 
 import Dashboard from "@/modules/dashboard/Dashboard";
 import LoginPage from "@/modules/auth/pages/login-page";
@@ -19,6 +24,12 @@ import NotificationsPage from "@/modules/notifications/pages/NotificationsPage";
 import ActivityPage from "@/modules/activity/pages/ActivityPage";
 import ErrorPage from "@/shared/pages/error-page";
 import NotFoundPage from "@/shared/pages/not-found";
+import RestrictedPage from "@/shared/pages/restricted";
+
+const withAuthorizedScreen = (path: string, element: ReactNode) => ({
+  path: path.replace(/^\/app\//, ""),
+  element: <AuthorizedScreenRoute path={path}>{element}</AuthorizedScreenRoute>,
+});
 
 export const AppRouter = createBrowserRouter([
   {
@@ -59,194 +70,78 @@ export const AppRouter = createBrowserRouter([
         element: <ProfilePage />,
       },
       {
-        path: "users",
-        element: <Navigate to="/app/users/members" replace />,
+        path: "restricted",
+        element: <RestrictedPage />,
       },
       {
-        path: "users/members",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["users"]}
-            requiredPermissions={["users.read"]}
-            allowCustomerPortal={false}
-          >
-            <MembersPage />
-          </ProtectedRoute>
-        ),
+        path: "users",
+        element: <ModuleLandingRoute moduleKey="users" />,
       },
+      withAuthorizedScreen("/app/users/members", <MembersPage />),
       {
         path: "billing",
-        element: <Navigate to="/app/billing/payments" replace />,
+        element: <ModuleLandingRoute moduleKey="billing" />,
       },
-      {
-        path: "billing/payments",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["billing"]}
-            requiredPermissionsAny={["billing.read", "billing.self.read"]}
-          >
-            <BillingPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "billing/me/payments",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["billing"]}
-            requiredPermissionsAny={["billing.read", "billing.self.read"]}
-          >
-            <BillingPage />
-          </ProtectedRoute>
-        ),
-      },
+      withAuthorizedScreen(
+        "/app/billing/payments",
+        <BillingPage initialTab="payments" />,
+      ),
+      withAuthorizedScreen(
+        "/app/billing/settings",
+        <BillingPage initialTab="methods" surface="settings" />,
+      ),
+      withAuthorizedScreen(
+        "/app/billing/me/payments",
+        <BillingPage initialTab="payments" />,
+      ),
       {
         path: "analytics",
-        element: <Navigate to="/app/analytics/dashboard" replace />,
+        element: <ModuleLandingRoute moduleKey="analytics" />,
       },
-      {
-        path: "analytics/dashboard",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["analytics"]}
-            requiredPermissionsAny={["analytics.read", "analytics.self.read"]}
-          >
-            <AnalyticsDashboard />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "analytics/me/dashboard",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["analytics"]}
-            requiredPermissionsAny={["analytics.read", "analytics.self.read"]}
-          >
-            <AnalyticsDashboard />
-          </ProtectedRoute>
-        ),
-      },
+      withAuthorizedScreen(
+        "/app/analytics/dashboard",
+        <AnalyticsDashboard />,
+      ),
+      withAuthorizedScreen(
+        "/app/analytics/me/dashboard",
+        <AnalyticsDashboard />,
+      ),
       {
         path: "schedules",
-        element: <Navigate to="/app/schedules/business-hours" replace />,
+        element: <ModuleLandingRoute moduleKey="schedules" />,
       },
-      {
-        path: "schedules/business-hours",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["schedules"]}
-            requiredPermissionsAny={["schedules.read", "schedules.self.read"]}
-          >
-            <SchedulesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "schedules/me/availability",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["schedules"]}
-            requiredPermissionsAny={["schedules.read", "schedules.self.read"]}
-          >
-            <SchedulesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "notifications",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["notifications"]}
-            requiredPermissions={["notifications.read"]}
-            allowCustomerPortal={false}
-          >
-            <NotificationsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "activity",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredPermissionsAny={["notifications.self.read"]}
-          >
-            <ActivityPage />
-          </ProtectedRoute>
-        ),
-      },
+      withAuthorizedScreen(
+        "/app/schedules/business-hours",
+        <SchedulesPage />,
+      ),
+      withAuthorizedScreen(
+        "/app/schedules/me/availability",
+        <SchedulesPage />,
+      ),
+      withAuthorizedScreen("/app/notifications", <NotificationsPage />),
+      withAuthorizedScreen("/app/activity", <ActivityPage />),
       {
         path: "rbac",
         element: <Navigate to="/app/settings/roles" replace />,
       },
-      {
-        path: "settings/roles",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["settings"]}
-            requiredPermissions={["roles.manage"]}
-            allowCustomerPortal={false}
-          >
-            <RbacPage />
-          </ProtectedRoute>
-        ),
-      },
+      withAuthorizedScreen("/app/settings/roles", <RbacPage />),
       {
         path: "audit",
-        element: <Navigate to="/app/audit/activity" replace />,
+        element: <ModuleLandingRoute moduleKey="audit" />,
       },
-      {
-        path: "audit/activity",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["audit"]}
-            requiredPermissions={["audit.read"]}
-            allowCustomerPortal={false}
-          >
-            <AuditPage />
-          </ProtectedRoute>
-        ),
-      },
+      withAuthorizedScreen("/app/audit/activity", <AuditPage />),
       {
         path: "settings",
-        element: <Navigate to="/app/settings/general" replace />,
+        element: <ModuleLandingRoute moduleKey="settings" />,
       },
-      {
-        path: "settings/general",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["settings"]}
-            requiredPermissions={["settings.read"]}
-            allowCustomerPortal={false}
-          >
-            <CompanySettingsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "settings/modules",
-        element: (
-          <ProtectedRoute
-            requireTenant
-            requiredModules={["settings"]}
-            requiredPermissions={["settings.read"]}
-            allowCustomerPortal={false}
-          >
-            <CompanySettingsPage />
-          </ProtectedRoute>
-        ),
-      },
+      withAuthorizedScreen(
+        "/app/settings/general",
+        <CompanySettingsPage initialTab="company" />,
+      ),
+      withAuthorizedScreen(
+        "/app/settings/modules",
+        <CompanySettingsPage initialTab="modules" />,
+      ),
       {
         path: "*",
         element: <NotFoundPage />,

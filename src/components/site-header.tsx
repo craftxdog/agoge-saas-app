@@ -5,6 +5,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
+import { useNavigationContext } from "@/shared/providers/navigation-provider";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { formatSystemLabel } from "@/shared/utils/labels";
 import { HeaderNotificationCenter } from "@/components/organisms/header-notification-center";
@@ -12,8 +13,9 @@ import { HeaderOrganizationSwitcher } from "@/components/organisms/header-organi
 import { Breadcrumbs } from "./breadcrumbs";
 
 export function SiteHeader() {
-  const { activeMembership, enabledModules } = useAuthStore();
+  const { activeMembership } = useAuthStore();
   const { isCustomerPortal } = useAccessContext();
+  const { modules } = useNavigationContext();
   const roleLabel =
     activeMembership?.roles?.length
       ? activeMembership.roles.map((role) => formatSystemLabel(role)).join(" · ")
@@ -36,7 +38,7 @@ export function SiteHeader() {
               </Badge>
               <Badge variant="outline" className="hidden rounded-full px-2.5 py-0.5 text-[11px] lg:inline-flex">
                 <Sparkles className="size-3.5" />
-                {enabledModules.length} modulos
+                {modules.length} modulos visibles
               </Badge>
             </div>
             <Breadcrumbs />

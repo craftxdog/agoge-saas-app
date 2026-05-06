@@ -5,6 +5,11 @@ import type {
   AuthUser,
   MeSession,
 } from "@/modules/auth/schemas/auth.schema";
+import {
+  getToken,
+  removeToken,
+  setToken as persistToken,
+} from "@/shared/api/auth-token";
 
 type SessionPayload = AuthSession | (MeSession & { tokens?: never });
 
@@ -19,6 +24,7 @@ type AuthState = {
   isHydrated: boolean;
   login: (session: AuthSession) => void;
   setSession: (session: SessionPayload, token?: string) => void;
+  setAccessToken: (token: string | null) => void;
   logout: () => void;
   setHydrated: (value: boolean) => void;
   syncActiveMembershipModules: (enabledModules: string[]) => void;
@@ -42,7 +48,7 @@ const normalizeSession = (session: SessionPayload, fallbackToken?: string) => {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  token: localStorage.getItem("token"),
+  token: getToken(),
   activeMembership: null,
   memberships: [],
   permissions: [],
@@ -51,7 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isHydrated: false,
 
   login: (session) => {
-    localStorage.setItem("token", session.tokens.accessToken);
+    persistToken(session.tokens.accessToken);
 
     set({
       ...normalizeSession(session),
@@ -61,19 +67,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setSession: (session, token) => {
-    if (token) {
-      localStorage.setItem("token", token);
+    const resolvedToken =
+      token ?? ("tokens" in session ? session.tokens?.accessToken : undefined);
+
+    if (resolvedToken) {
+      persistToken(resolvedToken);
     }
 
     set({
-      ...normalizeSession(session, token ?? get().token ?? undefined),
+      ...normalizeSession(session, resolvedToken ?? get().token ?? undefined),
       isAuthenticated: true,
       isHydrated: true,
     });
   },
 
+  setAccessToken: (token) =>
+    set((state) => ({
+      token,
+      isAuthenticated: token ? state.isAuthenticated || Boolean(state.user) : false,
+    })),
+
   logout: () => {
-    localStorage.removeItem("token");
+    removeToken();
 
     set({
       user: null,

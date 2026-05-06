@@ -27,8 +27,10 @@ export const rbacKeys = {
   role: (roleId?: string) => [...rbacKeys.all, "role", roleId] as const,
   memberRoles: (memberId?: string) =>
     [...rbacKeys.all, "member-roles", memberId] as const,
-  matrix: () => [...rbacKeys.all, "matrix"] as const,
-  navigation: () => [...rbacKeys.all, "navigation"] as const,
+  matrix: (organizationId?: string) =>
+    [...rbacKeys.all, "matrix", organizationId] as const,
+  navigation: (organizationId?: string) =>
+    [...rbacKeys.all, "navigation", organizationId] as const,
 };
 
 export const useRbacPermissions = (
@@ -86,9 +88,12 @@ export const useMemberRoles = (memberId?: string, options?: { enabled?: boolean 
     refetchOnWindowFocus: false,
   });
 
-export const useRbacAccessMatrix = (options?: { enabled?: boolean }) =>
+export const useRbacAccessMatrix = (options?: {
+  enabled?: boolean;
+  organizationId?: string;
+}) =>
   useQuery({
-    queryKey: rbacKeys.matrix(),
+    queryKey: rbacKeys.matrix(options?.organizationId),
     enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await rbacService.getAccessMatrix();
@@ -98,9 +103,12 @@ export const useRbacAccessMatrix = (options?: { enabled?: boolean }) =>
     refetchOnWindowFocus: false,
   });
 
-export const useRbacNavigation = (options?: { enabled?: boolean }) =>
+export const useRbacNavigation = (options?: {
+  enabled?: boolean;
+  organizationId?: string;
+}) =>
   useQuery({
-    queryKey: rbacKeys.navigation(),
+    queryKey: rbacKeys.navigation(options?.organizationId),
     enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await rbacService.getNavigation();

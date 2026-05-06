@@ -4,6 +4,8 @@ type AccessContextInput = {
   activeMembership?: AuthMembership | null;
   enabledModules?: string[];
   permissions?: string[];
+  hasTenantAccess?: boolean;
+  hasSelfAccess?: boolean;
 };
 
 export const isCustomerMembership = (
@@ -20,9 +22,13 @@ export const createAccessContext = ({
   activeMembership,
   enabledModules = [],
   permissions = [],
+  hasTenantAccess,
+  hasSelfAccess,
 }: AccessContextInput) => {
-  const hasSelfScope = permissions.some(isSelfScopedPermission);
-  const hasTenantScope = permissions.some(isTenantScopedPermission);
+  const hasSelfScope =
+    hasSelfAccess ?? permissions.some(isSelfScopedPermission);
+  const hasTenantScope =
+    hasTenantAccess ?? permissions.some(isTenantScopedPermission);
   const isCustomerPortal = hasSelfScope && !hasTenantScope;
   const visibleModules = enabledModules;
 

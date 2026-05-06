@@ -2,7 +2,6 @@
 
 import {
   IconBell,
-  IconBuildingCommunity,
   IconCreditCard,
   IconDotsVertical,
   IconLogout,
@@ -28,14 +27,16 @@ import {
 } from "@/components/ui/sidebar";
 import { useAccessContext } from "@/shared/hooks/useAccessContext";
 import { useLogout } from "@/shared/hooks/useLogout";
+import { useNavigationContext } from "@/shared/providers/navigation-provider";
 import { useAuthStore } from "@/shared/store/auth.store";
 import { formatSystemLabel } from "@/shared/utils/labels";
 import { Link } from "react-router-dom";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
-  const { user, activeMembership, enabledModules, permissions } = useAuthStore();
+  const { user, activeMembership } = useAuthStore();
   const { isCustomerPortal } = useAccessContext();
+  const { getModulePrimaryPath } = useNavigationContext();
   const logoutMutation = useLogout();
 
   if (!user) return null;
@@ -45,6 +46,11 @@ export function NavUser() {
     activeMembership?.roles.length
       ? activeMembership.roles.map((role) => formatSystemLabel(role)).join(", ")
       : formatSystemLabel(user.platformRole);
+  const billingPath = getModulePrimaryPath("billing");
+  const settingsPath = getModulePrimaryPath("settings");
+  const notificationsPath =
+    getModulePrimaryPath("notifications") ??
+    (isCustomerPortal ? "/app/activity" : null);
   const menuItems = [
     {
       to: "/app/profile",
@@ -53,31 +59,22 @@ export function NavUser() {
       visible: true,
     },
     {
-      to: "/app/billing",
+      to: billingPath ?? "/app",
       label: isCustomerPortal ? "Mis cobros" : "Cobros",
       icon: IconCreditCard,
-      visible: true,
+      visible: Boolean(billingPath),
     },
     {
-      to: "/app/notifications",
-      label: "Notificaciones",
+      to: notificationsPath ?? "/app",
+      label: isCustomerPortal ? "Actividad" : "Notificaciones",
       icon: IconBell,
-      visible:
-        !isCustomerPortal &&
-        enabledModules.includes("notifications") &&
-        permissions.includes("notifications.read"),
+      visible: Boolean(notificationsPath),
     },
     {
-      to: "/app/settings",
-      label: "Organizacion",
-      icon: IconBuildingCommunity,
-      visible: !isCustomerPortal,
-    },
-    {
-      to: "/app/settings",
+      to: settingsPath ?? "/app",
       label: "Configuracion",
       icon: IconSettings,
-      visible: !isCustomerPortal,
+      visible: !isCustomerPortal && Boolean(settingsPath),
     },
   ].filter((item) => item.visible);
 
