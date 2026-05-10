@@ -84,7 +84,7 @@ export const AppRouter = createBrowserRouter([
       },
       withAuthorizedScreen(
         "/app/billing/payments",
-        <BillingPage initialTab="payments" />,
+        <BillingPage initialTab="payments" surface="tenant" />,
       ),
       withAuthorizedScreen(
         "/app/billing/settings",
@@ -92,7 +92,7 @@ export const AppRouter = createBrowserRouter([
       ),
       withAuthorizedScreen(
         "/app/billing/me/payments",
-        <BillingPage initialTab="payments" />,
+        <BillingPage initialTab="payments" surface="self" />,
       ),
       {
         path: "analytics",
@@ -100,11 +100,11 @@ export const AppRouter = createBrowserRouter([
       },
       withAuthorizedScreen(
         "/app/analytics/dashboard",
-        <AnalyticsDashboard />,
+        <AnalyticsDashboard surface="tenant" />,
       ),
       withAuthorizedScreen(
         "/app/analytics/me/dashboard",
-        <AnalyticsDashboard />,
+        <AnalyticsDashboard surface="self" />,
       ),
       {
         path: "schedules",
@@ -112,11 +112,11 @@ export const AppRouter = createBrowserRouter([
       },
       withAuthorizedScreen(
         "/app/schedules/business-hours",
-        <SchedulesPage />,
+        <SchedulesPage initialTab="hours" surface="tenant" />,
       ),
       withAuthorizedScreen(
         "/app/schedules/me/availability",
-        <SchedulesPage />,
+        <SchedulesPage surface="self" />,
       ),
       withAuthorizedScreen("/app/notifications", <NotificationsPage />),
       withAuthorizedScreen("/app/activity", <ActivityPage />),

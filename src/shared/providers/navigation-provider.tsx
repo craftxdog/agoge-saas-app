@@ -34,10 +34,12 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, activeMembership } = useAuth();
   const organizationId = activeMembership?.organization.id;
+  const memberId = activeMembership?.id;
   const enabled = Boolean(isAuthenticated && organizationId);
   const navigationQuery = useRbacNavigation({
     enabled,
     organizationId,
+    memberId,
   });
 
   const runtime = useMemo(

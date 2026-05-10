@@ -6,7 +6,7 @@ import {
   Sparkles,
   UserRoundCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,10 +88,20 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
     Object.entries(payload).filter(([, value]) => value !== ""),
   ) as Partial<T>;
 
-export default function SchedulesPage() {
+type SchedulesPageProps = {
+  initialTab?: "day" | "locations" | "hours" | "exceptions" | "availability";
+  surface?: "tenant" | "self";
+};
+
+type SchedulesTab = NonNullable<SchedulesPageProps["initialTab"]>;
+
+export default function SchedulesPage({
+  initialTab = "hours",
+  surface = "tenant",
+}: SchedulesPageProps) {
   const { hasPermission } = useAuth();
   const canReadTenantSchedules = hasPermission("schedules.read");
-  const canReadSelfSchedules = hasPermission("schedules.self.read");
+  const [activeTab, setActiveTab] = useState<SchedulesTab>(initialTab);
   const [locationSearch, setLocationSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [dayDate, setDayDate] = useState(today);
@@ -155,7 +165,11 @@ export default function SchedulesPage() {
 
   const locationOptions = locations.data ?? [];
 
-  if (!canReadTenantSchedules && canReadSelfSchedules) {
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  if (surface === "self") {
     return <CustomerSchedulesView />;
   }
 
@@ -178,7 +192,11 @@ export default function SchedulesPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="day" className="gap-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as SchedulesTab)}
+        className="gap-6"
+      >
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="day" className="rounded-xl px-4 py-2">
             Dia

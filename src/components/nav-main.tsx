@@ -76,6 +76,7 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
           return (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
+                asChild
                 isActive={isParentActive}
                 size="lg"
                 className={
@@ -85,20 +86,22 @@ export function NavMain({ items }: { items: SidebarNavItem[] }) {
                     : " text-sidebar-foreground/88 hover:bg-white/75")
                 }
               >
-                {item.icon ? (
-                  <span
-                    className={
-                      "grid size-7 shrink-0 place-items-center rounded-lg" +
-                      (isParentActive
-                        ? " bg-primary/10 text-primary"
-                        : " bg-muted/35 text-sidebar-foreground/75")
-                    }
-                  >
-                    <item.icon />
-                  </span>
-                ) : null}
-                <span>{item.title}</span>
-                <ChevronRight className="ml-auto text-muted-foreground" />
+                <Link to={item.url}>
+                  {item.icon ? (
+                    <span
+                      className={
+                        "grid size-7 shrink-0 place-items-center rounded-lg" +
+                        (isParentActive
+                          ? " bg-primary/10 text-primary"
+                          : " bg-muted/35 text-sidebar-foreground/75")
+                      }
+                    >
+                      <item.icon />
+                    </span>
+                  ) : null}
+                  <span>{item.title}</span>
+                  <ChevronRight className="ml-auto text-muted-foreground" />
+                </Link>
               </SidebarMenuButton>
 
               <SidebarMenuSub className="mx-0 mt-1 border-l-0 px-0 py-0">

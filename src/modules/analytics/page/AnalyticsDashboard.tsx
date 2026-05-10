@@ -73,10 +73,15 @@ const formatBucket = (bucket: string) => {
   }).format(date);
 };
 
-export const AnalyticsDashboard = () => {
+type AnalyticsDashboardProps = {
+  surface?: "tenant" | "self";
+};
+
+export const AnalyticsDashboard = ({
+  surface = "tenant",
+}: AnalyticsDashboardProps) => {
   const { activeMembership, hasPermission } = useAuth();
   const canReadTenantAnalytics = hasPermission("analytics.read");
-  const canReadSelfAnalytics = hasPermission("analytics.self.read");
   const [groupBy, setGroupBy] = useState<AnalyticsGroupBy>("day");
   const [activeTab, setActiveTab] = useState("overview");
   const query = { groupBy, top: 6 };
@@ -96,7 +101,7 @@ export const AnalyticsDashboard = () => {
     enabled: canReadTenantAnalytics && activeTab === "catalog",
   });
 
-  if (!canReadTenantAnalytics && canReadSelfAnalytics) {
+  if (surface === "self") {
     return <CustomerAnalyticsView />;
   }
 

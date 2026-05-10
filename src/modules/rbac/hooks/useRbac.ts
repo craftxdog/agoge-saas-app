@@ -29,8 +29,8 @@ export const rbacKeys = {
     [...rbacKeys.all, "member-roles", memberId] as const,
   matrix: (organizationId?: string) =>
     [...rbacKeys.all, "matrix", organizationId] as const,
-  navigation: (organizationId?: string) =>
-    [...rbacKeys.all, "navigation", organizationId] as const,
+  navigation: (organizationId?: string, memberId?: string) =>
+    [...rbacKeys.all, "navigation", organizationId, memberId] as const,
 };
 
 export const useRbacPermissions = (
@@ -106,9 +106,10 @@ export const useRbacAccessMatrix = (options?: {
 export const useRbacNavigation = (options?: {
   enabled?: boolean;
   organizationId?: string;
+  memberId?: string;
 }) =>
   useQuery({
-    queryKey: rbacKeys.navigation(options?.organizationId),
+    queryKey: rbacKeys.navigation(options?.organizationId, options?.memberId),
     enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await rbacService.getNavigation();

@@ -161,18 +161,17 @@ const clean = <T extends Record<string, unknown>>(payload: T) =>
 
 type BillingPageProps = {
   initialTab?: "payments" | "transactions" | "types" | "methods";
-  surface?: "workspace" | "settings";
+  surface?: "tenant" | "self" | "settings";
 };
 
 type BillingTab = NonNullable<BillingPageProps["initialTab"]>;
 
 export default function BillingPage({
   initialTab = "payments",
-  surface = "workspace",
+  surface = "tenant",
 }: BillingPageProps) {
   const { hasPermission } = useAuth();
   const canReadTenantBilling = hasPermission("billing.read");
-  const canReadSelfBilling = hasPermission("billing.self.read");
   const [activeTab, setActiveTab] = useState<BillingTab>(initialTab);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
@@ -195,6 +194,7 @@ export default function BillingPage({
     hasPermission("billing.override") ||
     hasPermission("billing.write");
   const isSettingsSurface = surface === "settings";
+  const isSelfSurface = surface === "self";
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -272,7 +272,7 @@ export default function BillingPage({
       .includes(search);
   });
 
-  if (!canReadTenantBilling && canReadSelfBilling) {
+  if (isSelfSurface) {
     return <CustomerBillingView />;
   }
 

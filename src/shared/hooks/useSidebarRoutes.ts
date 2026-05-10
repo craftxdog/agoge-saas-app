@@ -15,6 +15,34 @@ import { useNavigationContext } from "@/shared/providers/navigation-provider";
 export const useSidebarRoutes = () => {
   const { modules } = useNavigationContext();
 
+  const groupedModuleConfig = {
+    analytics: {
+      primaryPath: "/analytics/dashboard",
+      secondaryPaths: ["/analytics/me/dashboard"],
+      title: "Analytics",
+    },
+    billing: {
+      primaryPath: "/billing/payments",
+      secondaryPaths: ["/billing/me/payments"],
+      title: "Billing",
+    },
+    notifications: {
+      primaryPath: "/notifications",
+      secondaryPaths: ["/activity"],
+      title: "Notifications",
+    },
+    schedules: {
+      primaryPath: "/schedules/business-hours",
+      secondaryPaths: ["/schedules/me/availability"],
+      title: "Schedules",
+    },
+    settings: {
+      primaryPath: "/settings/general",
+      secondaryPaths: ["/settings/roles"],
+      title: "Settings",
+    },
+  } as const;
+
   const moduleIconMap = {
     analytics: IconChartBar,
     audit: IconShieldLock,
@@ -61,11 +89,45 @@ export const useSidebarRoutes = () => {
       return null;
     }
 
+    const groupedConfig =
+      groupedModuleConfig[module.key as keyof typeof groupedModuleConfig];
+
+    if (groupedConfig) {
+      const primaryScreen =
+        screens.find((screen) => screen.path === groupedConfig.primaryPath) ??
+        screens[0];
+      const secondaryScreens = groupedConfig.secondaryPaths
+        .map((path) => screens.find((screen) => screen.path === path))
+        .filter(
+          (
+            screen,
+          ): screen is (typeof modules)[number]["screens"][number] =>
+            Boolean(screen && screen.path !== primaryScreen.path),
+        );
+
+      return {
+        title: groupedConfig.title,
+        url: `/app${primaryScreen.path}`,
+        icon:
+          screenIconMap[primaryScreen.path] ??
+          moduleIconMap[module.key as keyof typeof moduleIconMap] ??
+          IconDashboard,
+        items: secondaryScreens.length
+          ? secondaryScreens.map((screen) => mapScreen(screen, module))
+          : undefined,
+      };
+    }
+
     const primaryScreen = screens[0];
     const children = screens.length > 1 ? screens.map((screen) => mapScreen(screen, module)) : undefined;
 
     return {
-      title: screens.length === 1 ? primaryScreen.title : module.name,
+      title:
+        module.key === "audit"
+          ? module.name
+          : screens.length === 1
+            ? primaryScreen.title
+            : module.name,
       url: `/app${primaryScreen.path}`,
       icon:
         screenIconMap[primaryScreen.path] ??
