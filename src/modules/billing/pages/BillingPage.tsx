@@ -36,9 +36,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { CursorPagination } from "@/shared/components/CursorPagination";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
-import { useAuth } from "@/shared/hooks/useAuth";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
+import { billingPermissionPolicy } from "@/shared/auth/permission-policy";
+import { useEndpointAccess } from "@/shared/hooks/useEndpointAccess";
 import { useMembers } from "@/modules/users/hooks/useUsers";
 import { BillingDateField } from "../components/BillingDateField";
 import { CustomerBillingView } from "../components/CustomerBillingView";
@@ -170,9 +171,7 @@ export default function BillingPage({
   initialTab = "payments",
   surface = "tenant",
 }: BillingPageProps) {
-  const { hasPermission } = useAuth();
-  const canReadTenantBilling = hasPermission("billing.read");
-  const [activeTab, setActiveTab] = useState<BillingTab>(initialTab);
+  const endpointAccess = useEndpointAccess();
   const [catalogSearch, setCatalogSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [paymentSearch, setPaymentSearch] = useState("");
@@ -188,17 +187,100 @@ export default function BillingPage({
   const paymentsPagination = useCursorPagination(20);
   const debouncedCatalogSearch = useDebouncedValue(catalogSearch, 350);
   const debouncedMemberSearch = useDebouncedValue(memberSearch, 250);
-  const canWriteBilling = hasPermission("billing.write");
-  const canCancelPayments =
-    hasPermission("billing.cancel") ||
-    hasPermission("billing.override") ||
-    hasPermission("billing.write");
+  const canCreatePayment = endpointAccess.can({
+    method: "POST",
+    path: "/billing/payments",
+    fallbackPermissions: billingPermissionPolicy.createPayment,
+  });
+  const canRecordTransaction = endpointAccess.can({
+    method: "POST",
+    path: "/billing/payments/:paymentId/transactions",
+    fallbackPermissions: billingPermissionPolicy.recordTransaction,
+  });
+  const canUpdatePayment = endpointAccess.can({
+    method: "PATCH",
+    path: "/billing/payments/:paymentId",
+    fallbackPermissions: billingPermissionPolicy.updatePayment,
+  });
+  const canManageBillingCatalog = endpointAccess.canAny([
+    {
+      method: "POST",
+      path: "/billing/payment-types",
+      fallbackPermissions: billingPermissionPolicy.manageCatalog,
+    },
+    {
+      method: "PATCH",
+      path: "/billing/payment-types/:paymentTypeId",
+      fallbackPermissions: billingPermissionPolicy.manageCatalog,
+    },
+    {
+      method: "DELETE",
+      path: "/billing/payment-types/:paymentTypeId",
+      fallbackPermissions: billingPermissionPolicy.manageCatalog,
+    },
+    {
+      method: "POST",
+      path: "/billing/payment-methods",
+      fallbackPermissions: billingPermissionPolicy.manageCatalog,
+    },
+    {
+      method: "PATCH",
+      path: "/billing/payment-methods/:paymentMethodId",
+      fallbackPermissions: billingPermissionPolicy.manageCatalog,
+    },
+    {
+      method: "DELETE",
+      path: "/billing/payment-methods/:paymentMethodId",
+      fallbackPermissions: billingPermissionPolicy.manageCatalog,
+    },
+  ]);
+  const canCancelPayments = endpointAccess.can({
+    method: "PATCH",
+    path: "/billing/payments/:paymentId",
+    fallbackPermissions: billingPermissionPolicy.cancelPayment,
+  });
+  const canOperateBilling =
+    canCreatePayment || canRecordTransaction || canUpdatePayment;
+  const canReadTenantBilling =
+    endpointAccess.canAny([
+      {
+        method: "GET",
+        path: "/billing/summary",
+        fallbackPermissions: billingPermissionPolicy.read,
+      },
+      {
+        method: "GET",
+        path: "/billing/payments",
+        fallbackPermissions: billingPermissionPolicy.read,
+      },
+      {
+        method: "GET",
+        path: "/billing/payment-types",
+        fallbackPermissions: billingPermissionPolicy.read,
+      },
+      {
+        method: "GET",
+        path: "/billing/payment-methods",
+        fallbackPermissions: billingPermissionPolicy.read,
+      },
+    ]) ||
+    canOperateBilling ||
+    canManageBillingCatalog;
+  const initialVisibleTab =
+    !canManageBillingCatalog && (initialTab === "types" || initialTab === "methods")
+      ? "payments"
+      : initialTab;
+  const [activeTab, setActiveTab] = useState<BillingTab>(initialVisibleTab);
+  const visibleActiveTab =
+    !canManageBillingCatalog && (activeTab === "types" || activeTab === "methods")
+      ? "payments"
+      : activeTab;
   const isSettingsSurface = surface === "settings";
   const isSelfSurface = surface === "self";
 
   useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+    setActiveTab(initialVisibleTab);
+  }, [initialVisibleTab]);
 
   const summary = useBillingSummary({ enabled: canReadTenantBilling });
   const members = useMembers({
@@ -208,17 +290,21 @@ export default function BillingPage({
     sortBy: "createdAt",
     sortDirection: "desc",
   }, {
-    enabled: canReadTenantBilling && activeTab === "payments",
+    enabled: canReadTenantBilling && visibleActiveTab === "payments",
   });
   const paymentTypes = usePaymentTypes({
     search: debouncedCatalogSearch || undefined,
   }, {
-    enabled: canReadTenantBilling && (activeTab === "payments" || activeTab === "types"),
+    enabled:
+      canReadTenantBilling &&
+      (visibleActiveTab === "payments" || visibleActiveTab === "types"),
   });
   const paymentMethods = usePaymentMethods({
     search: debouncedCatalogSearch || undefined,
   }, {
-    enabled: canReadTenantBilling && (activeTab === "transactions" || activeTab === "methods"),
+    enabled:
+      canReadTenantBilling &&
+      (visibleActiveTab === "transactions" || visibleActiveTab === "methods"),
   });
   const payments = usePayments({
     status: paymentStatus,
@@ -227,13 +313,15 @@ export default function BillingPage({
     sortBy: "dueDate",
     sortDirection: "desc",
   }, {
-    enabled: canReadTenantBilling && (activeTab === "payments" || activeTab === "transactions"),
+    enabled:
+      canReadTenantBilling &&
+      (visibleActiveTab === "payments" || visibleActiveTab === "transactions"),
   });
   const paymentDetail = usePayment(selectedPaymentId || undefined, {
-    enabled: canReadTenantBilling && activeTab === "transactions",
+    enabled: canReadTenantBilling && visibleActiveTab === "transactions",
   });
   const transactions = usePaymentTransactions(selectedPaymentId || undefined, undefined, {
-    enabled: canReadTenantBilling && activeTab === "transactions",
+    enabled: canReadTenantBilling && visibleActiveTab === "transactions",
   });
   const createPaymentType = useCreatePaymentType();
   const updatePaymentType = useUpdatePaymentType();
@@ -276,7 +364,7 @@ export default function BillingPage({
     return <CustomerBillingView />;
   }
 
-  if (isSettingsSurface && !canReadTenantBilling && canWriteBilling) {
+  if (isSettingsSurface && !canReadTenantBilling && canManageBillingCatalog) {
     return <BillingSettingsPlaceholder />;
   }
 
@@ -320,16 +408,16 @@ export default function BillingPage({
         />
       </div>
 
-      {!canWriteBilling ? (
+      {!canOperateBilling && !canManageBillingCatalog ? (
         <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50/80 px-5 py-4 text-sm text-amber-950">
-          Esta sesion solo tiene lectura o gestion parcial del modulo. Para crear,
-          corregir o anular cobros necesitas `billing.write` o un permiso fino como
-          `billing.cancel` / `billing.override`.
+          Esta sesion solo tiene lectura del modulo. Para operar cobros necesitas
+          un permiso fino como `billing.cobros`, `billing.stable`,
+          `billing.collect` o `billing.transaction.create`.
         </div>
       ) : null}
 
       <Tabs
-        value={activeTab}
+        value={visibleActiveTab}
         onValueChange={(value) => setActiveTab(value as BillingTab)}
         className="gap-6"
       >
@@ -340,70 +428,75 @@ export default function BillingPage({
           <TabsTrigger value="transactions" className="rounded-xl px-4 py-2">
             Transacciones
           </TabsTrigger>
-          <TabsTrigger value="types" className="rounded-xl px-4 py-2">
-            Conceptos
-          </TabsTrigger>
-          <TabsTrigger value="methods" className="rounded-xl px-4 py-2">
-            Metodos
-          </TabsTrigger>
+          {canManageBillingCatalog ? (
+            <TabsTrigger value="types" className="rounded-xl px-4 py-2">
+              Conceptos
+            </TabsTrigger>
+          ) : null}
+          {canManageBillingCatalog ? (
+            <TabsTrigger value="methods" className="rounded-xl px-4 py-2">
+              Metodos
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="payments">
-          <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-            <Card className="rounded-[1.75rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ReceiptText className="size-5 text-primary" />
-                  Nuevo cobro
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    createPayment.mutate(clean(paymentForm) as CreatePayment, {
-                      onSuccess: () => {
-                        setPaymentForm(paymentDefaults);
-                        setSelectedMemberPreview(null);
-                        setMemberSearch("");
-                      },
-                    });
-                  }}
-                >
-                  <MemberLookupField
-                    search={memberSearch}
-                    selectedMemberId={paymentForm.memberId}
-                    selectedMember={selectedMember}
-                    members={memberOptions}
-                    isLoading={members.isLoading}
-                    onSearchChange={setMemberSearch}
-                    onSelect={(value) => {
-                      const member = memberOptions.find((item) => item.id === value);
-                      setPaymentForm((current) => ({ ...current, memberId: value }));
-                      if (member) {
-                        setSelectedMemberPreview(member);
-                        setMemberSearch(
-                          `${member.user.firstName} ${member.user.lastName}`.trim(),
-                        );
-                      }
+          <div className={canCreatePayment ? "grid gap-6 xl:grid-cols-[0.8fr_1.2fr]" : "grid gap-6"}>
+            {canCreatePayment ? (
+              <Card className="rounded-[1.75rem]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ReceiptText className="size-5 text-primary" />
+                    Nuevo cobro
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="grid gap-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      createPayment.mutate(clean(paymentForm) as CreatePayment, {
+                        onSuccess: () => {
+                          setPaymentForm(paymentDefaults);
+                          setSelectedMemberPreview(null);
+                          setMemberSearch("");
+                        },
+                      });
                     }}
-                  />
-                  <PaymentTypeSelect
-                    value={paymentForm.paymentTypeId ?? ""}
-                    types={typeOptions}
-                    onChange={(value) => {
-                      const selectedType = typeOptions.find((type) => type.id === value);
-                      setPaymentForm((current) => ({
-                        ...current,
-                        paymentTypeId: value,
-                        amount: selectedType?.amount ?? current.amount,
-                        currency: selectedType?.currency ?? current.currency,
-                      }));
-                    }}
-                  />
+                  >
+                    <MemberLookupField
+                      search={memberSearch}
+                      selectedMemberId={paymentForm.memberId}
+                      selectedMember={selectedMember}
+                      members={memberOptions}
+                      isLoading={members.isLoading}
+                      onSearchChange={setMemberSearch}
+                      onSelect={(value) => {
+                        const member = memberOptions.find((item) => item.id === value);
+                        setPaymentForm((current) => ({ ...current, memberId: value }));
+                        if (member) {
+                          setSelectedMemberPreview(member);
+                          setMemberSearch(
+                            `${member.user.firstName} ${member.user.lastName}`.trim(),
+                          );
+                        }
+                      }}
+                    />
+                    <PaymentTypeSelect
+                      value={paymentForm.paymentTypeId ?? ""}
+                      types={typeOptions}
+                      onChange={(value) => {
+                        const selectedType = typeOptions.find((type) => type.id === value);
+                        setPaymentForm((current) => ({
+                          ...current,
+                          paymentTypeId: value,
+                          amount: selectedType?.amount ?? current.amount,
+                          currency: selectedType?.currency ?? current.currency,
+                        }));
+                      }}
+                    />
 
-                  {selectedMember ? (
+                    {selectedMember ? (
                     <div className="rounded-[1.15rem] border bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
                       Confirma antes de guardar: este cobro se asignara a{" "}
                       <span className="font-semibold text-foreground">
@@ -414,7 +507,7 @@ export default function BillingPage({
                         {selectedMember.user.email}
                       </span>.
                     </div>
-                  ) : null}
+                    ) : null}
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <TextField
@@ -483,23 +576,23 @@ export default function BillingPage({
                       }))
                     }
                   />
-                  <Button
-                    className="w-fit rounded-full"
-                    disabled={
-                      !canWriteBilling ||
-                      createPayment.isPending ||
-                      !paymentForm.memberId ||
-                      !parseBillingDate(paymentForm.dueDate)
-                    }
-                  >
-                    {createPayment.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : null}
-                    Crear cobro
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                    <Button
+                      className="w-fit rounded-full"
+                      disabled={
+                        createPayment.isPending ||
+                        !paymentForm.memberId ||
+                        !parseBillingDate(paymentForm.dueDate)
+                      }
+                    >
+                      {createPayment.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : null}
+                      Crear cobro
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <Card className="rounded-[1.75rem]">
               <CardHeader>
@@ -627,160 +720,157 @@ export default function BillingPage({
                   </div>
                 )}
 
-                <form
-                  className="grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!selectedPaymentId) return;
-                    createTransaction.mutate({
-                      paymentId: selectedPaymentId,
-                      data: clean(transactionForm) as CreatePaymentTransaction,
-                    });
-                  }}
-                >
-                  <PaymentMethodSelect
-                    value={transactionForm.paymentMethodId ?? ""}
-                    methods={methodOptions}
-                    onChange={(value) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        paymentMethodId: value,
-                      }))
-                    }
-                  />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <TextField
-                      label="Monto"
-                      value={transactionForm.amount}
-                      onChange={(value) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          amount: value,
-                        }))
-                      }
-                    />
-                    <TextField
-                      label="Moneda"
-                      value={transactionForm.currency ?? "NIO"}
-                      onChange={(value) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          currency: value.toUpperCase(),
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Estado</Label>
-                    <select
-                      className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
-                      value={transactionForm.status ?? "SUCCEEDED"}
-                      onChange={(event) =>
-                        setTransactionForm((current) => ({
-                          ...current,
-                          status: event.target.value as CreatePaymentTransaction["status"],
-                        }))
-                      }
-                    >
-                      {transactionStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <TextField
-                    label="Referencia"
-                    value={transactionForm.reference ?? ""}
-                    onChange={(value) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        reference: value,
-                      }))
-                    }
-                  />
-                  <Button
-                    className="w-fit rounded-full"
-                    disabled={
-                      !canWriteBilling ||
-                      !selectedPaymentId ||
-                      createTransaction.isPending
-                    }
+                {canRecordTransaction ? (
+                  <form
+                    className="grid gap-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (!selectedPaymentId) return;
+                      createTransaction.mutate({
+                        paymentId: selectedPaymentId,
+                        data: clean(transactionForm) as CreatePaymentTransaction,
+                      });
+                    }}
                   >
-                    Registrar pago
-                  </Button>
-                </form>
+                    <PaymentMethodSelect
+                      value={transactionForm.paymentMethodId ?? ""}
+                      methods={methodOptions}
+                      onChange={(value) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          paymentMethodId: value,
+                        }))
+                      }
+                    />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <TextField
+                        label="Monto"
+                        value={transactionForm.amount}
+                        onChange={(value) =>
+                          setTransactionForm((current) => ({
+                            ...current,
+                            amount: value,
+                          }))
+                        }
+                      />
+                      <TextField
+                        label="Moneda"
+                        value={transactionForm.currency ?? "NIO"}
+                        onChange={(value) =>
+                          setTransactionForm((current) => ({
+                            ...current,
+                            currency: value.toUpperCase(),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Estado</Label>
+                      <select
+                        className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
+                        value={transactionForm.status ?? "SUCCEEDED"}
+                        onChange={(event) =>
+                          setTransactionForm((current) => ({
+                            ...current,
+                            status: event.target.value as CreatePaymentTransaction["status"],
+                          }))
+                        }
+                      >
+                        {transactionStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <TextField
+                      label="Referencia"
+                      value={transactionForm.reference ?? ""}
+                      onChange={(value) =>
+                        setTransactionForm((current) => ({
+                          ...current,
+                          reference: value,
+                        }))
+                      }
+                    />
+                    <Button
+                      className="w-fit rounded-full"
+                      disabled={!selectedPaymentId || createTransaction.isPending}
+                    >
+                      Registrar pago
+                    </Button>
+                  </form>
+                ) : null}
 
-                <div className="rounded-2xl border bg-white/60 p-4">
+                {canUpdatePayment || canCancelPayments ? (
+                  <div className="rounded-2xl border bg-white/60 p-4">
                   <p className="font-semibold">Actualizar cobro seleccionado</p>
                   <div className="mt-3 grid gap-3">
-                    <select
-                      className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
-                      value={selectedPayment?.status ?? ""}
-                      disabled={!canWriteBilling}
-                      onChange={(event) => {
-                        if (!selectedPaymentId) return;
-                        updatePayment.mutate({
+                    {canUpdatePayment ? (
+                      <>
+                        <select
+                          className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
+                          value={selectedPayment?.status ?? ""}
+                          onChange={(event) => {
+                            if (!selectedPaymentId) return;
+                            updatePayment.mutate({
                           paymentId: selectedPaymentId,
                           data: { status: event.target.value as PaymentStatus },
                         });
                       }}
-                    >
-                      {paymentStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                    <BillingDateField
-                      label="Reprogramar vencimiento"
-                      value={paymentDueDateDraft}
-                      onChange={setPaymentDueDateDraft}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-fit rounded-full"
-                      disabled={
-                        !canWriteBilling ||
-                        !selectedPaymentId ||
-                        updatePayment.isPending ||
-                        !parseBillingDate(paymentDueDateDraft)
-                      }
-                      onClick={() =>
-                        updatePayment.mutate({
-                          paymentId: selectedPaymentId,
-                          data: { dueDate: paymentDueDateDraft },
-                        })
-                      }
-                    >
-                      <CalendarDays className="size-4" />
-                      Guardar vencimiento
-                    </Button>
-                    <Textarea
-                      className="min-h-24 rounded-2xl bg-white/70"
-                      placeholder="Notas del cobro"
-                      value={paymentNotes}
-                      onChange={(event) => setPaymentNotes(event.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-fit rounded-full"
-                      disabled={
-                        !canWriteBilling ||
-                        !selectedPaymentId ||
-                        updatePayment.isPending
-                      }
-                      onClick={() =>
-                        updatePayment.mutate({
-                          paymentId: selectedPaymentId,
-                          data: { notes: paymentNotes },
-                        })
-                      }
-                    >
-                      Guardar notas
-                    </Button>
+                        >
+                          {paymentStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                        <BillingDateField
+                          label="Reprogramar vencimiento"
+                          value={paymentDueDateDraft}
+                          onChange={setPaymentDueDateDraft}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-fit rounded-full"
+                          disabled={
+                            !selectedPaymentId ||
+                            updatePayment.isPending ||
+                            !parseBillingDate(paymentDueDateDraft)
+                          }
+                          onClick={() =>
+                            updatePayment.mutate({
+                              paymentId: selectedPaymentId,
+                              data: { dueDate: paymentDueDateDraft },
+                            })
+                          }
+                        >
+                          <CalendarDays className="size-4" />
+                          Guardar vencimiento
+                        </Button>
+                        <Textarea
+                          className="min-h-24 rounded-2xl bg-white/70"
+                          placeholder="Notas del cobro"
+                          value={paymentNotes}
+                          onChange={(event) => setPaymentNotes(event.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-fit rounded-full"
+                          disabled={!selectedPaymentId || updatePayment.isPending}
+                          onClick={() =>
+                            updatePayment.mutate({
+                              paymentId: selectedPaymentId,
+                              data: { notes: paymentNotes },
+                            })
+                          }
+                        >
+                          Guardar notas
+                        </Button>
+                      </>
+                    ) : null}
 
                     {canCancelPayments ? (
                       <AlertDialog>
@@ -789,11 +879,7 @@ export default function BillingPage({
                             type="button"
                             variant="destructive"
                             className="w-fit rounded-full"
-                            disabled={
-                              !selectedPaymentId ||
-                              !canWriteBilling ||
-                              updatePayment.isPending
-                            }
+                            disabled={!selectedPaymentId || updatePayment.isPending}
                           >
                             <AlertTriangle className="size-4" />
                             Anular cobro
@@ -846,6 +932,7 @@ export default function BillingPage({
                     ) : null}
                   </div>
                 </div>
+                ) : null}
               </CardContent>
             </Card>
 

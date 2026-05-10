@@ -49,6 +49,7 @@ export const accessScreenSchema = z.object({
   requiredPermissionKey: z.string().nullable().optional(),
   isVisible: z.boolean(),
   accessScope: z.enum(["tenant", "self", "public"]).default("tenant"),
+  config: z.unknown().optional(),
 });
 
 export const accessModuleSchema = z.object({
@@ -99,6 +100,39 @@ export const updateRoleSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
+export const endpointMethodSchema = z.enum([
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+  "HEAD",
+]);
+
+export const endpointPermissionRuleSchema = z.object({
+  id: z.string(),
+  method: endpointMethodSchema,
+  pathPattern: z.string(),
+  permissionKey: z.string(),
+  description: z.string().nullable().optional(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const createEndpointPermissionRuleSchema = z.object({
+  method: endpointMethodSchema,
+  pathPattern: z.string().min(1, "Ruta requerida").max(240),
+  permissionKey: z
+    .string()
+    .min(3, "Minimo 3 caracteres")
+    .max(120)
+    .regex(rbacKeyPattern, "Usa formato billing.transactions.create"),
+  description: optionalText(z.string().max(500)),
+  isActive: z.boolean().optional(),
+});
+
 export type Permission = z.infer<typeof permissionSchema>;
 export type Role = z.infer<typeof roleSchema>;
 export type MemberRoles = z.infer<typeof memberRolesSchema>;
@@ -109,6 +143,13 @@ export type Navigation = z.infer<typeof navigationSchema>;
 export type CreateRole = z.infer<typeof createRoleSchema>;
 export type CreatePermission = z.infer<typeof createPermissionSchema>;
 export type UpdateRole = z.infer<typeof updateRoleSchema>;
+export type EndpointMethod = z.infer<typeof endpointMethodSchema>;
+export type EndpointPermissionRule = z.infer<
+  typeof endpointPermissionRuleSchema
+>;
+export type CreateEndpointPermissionRule = z.infer<
+  typeof createEndpointPermissionRuleSchema
+>;
 
 export type RbacRoleQuery = {
   search?: string;

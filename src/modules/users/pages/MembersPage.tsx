@@ -25,6 +25,8 @@ import { CursorPagination } from "@/shared/components/CursorPagination";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
+import { usersPermissionPolicy } from "@/shared/auth/permission-policy";
+import { useEndpointAccess } from "@/shared/hooks/useEndpointAccess";
 import { useRbacRoles } from "@/modules/rbac/hooks/useRbac";
 import {
   createInvitationSchema,
@@ -59,7 +61,40 @@ const withoutEmptyStrings = <T extends Record<string, unknown>>(payload: T) =>
   ) as Partial<T>;
 
 export default function MembersPage() {
+  const endpointAccess = useEndpointAccess();
+  const canCreateMember = endpointAccess.can({
+    method: "POST",
+    path: "/users/members",
+    fallbackPermissions: usersPermissionPolicy.createMember,
+  });
+  const canUpdateMember = endpointAccess.can({
+    method: "PATCH",
+    path: "/users/members/:memberId",
+    fallbackPermissions: usersPermissionPolicy.updateMember,
+  });
+  const canChangeMemberStatus = endpointAccess.can({
+    method: "PATCH",
+    path: "/users/members/:memberId/status",
+    fallbackPermissions: usersPermissionPolicy.changeStatus,
+  });
+  const canRemoveMember = endpointAccess.can({
+    method: "DELETE",
+    path: "/users/members/:memberId",
+    fallbackPermissions: usersPermissionPolicy.removeMember,
+  });
+  const canCreateInvitation = endpointAccess.can({
+    method: "POST",
+    path: "/users/invitations",
+    fallbackPermissions: usersPermissionPolicy.createInvitation,
+  });
+  const canRevokeInvitation = endpointAccess.can({
+    method: "POST",
+    path: "/users/invitations/:invitationId/revoke",
+    fallbackPermissions: usersPermissionPolicy.revokeInvitation,
+  });
   const [activeTab, setActiveTab] = useState("members");
+  const visibleActiveTab =
+    activeTab === "create" && !canCreateMember ? "members" : activeTab;
   const [memberSearch, setMemberSearch] = useState("");
   const [memberStatus, setMemberStatus] = useState<MemberStatus | undefined>();
   const [invitationStatus, setInvitationStatus] = useState<
@@ -84,7 +119,7 @@ export default function MembersPage() {
     sortBy: "createdAt",
     sortDirection: "desc",
   }, {
-    enabled: activeTab === "members",
+    enabled: visibleActiveTab === "members",
   });
   const invitations = useInvitations({
     status: invitationStatus,
@@ -92,14 +127,14 @@ export default function MembersPage() {
     limit: invitationsPagination.limit,
     sortDirection: "desc",
   }, {
-    enabled: activeTab === "invitations",
+    enabled: visibleActiveTab === "invitations",
   });
   const roles = useRbacRoles({
     limit: 100,
     sortBy: "name",
     sortDirection: "asc",
   }, {
-    enabled: activeTab === "create",
+    enabled: canCreateMember && visibleActiveTab === "create",
   });
   const createMember = useCreateMember();
   const updateMember = useUpdateMember();
@@ -164,14 +199,16 @@ export default function MembersPage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
+      <Tabs value={visibleActiveTab} onValueChange={setActiveTab} className="gap-6">
         <TabsList className="flex h-auto w-full flex-wrap justify-start rounded-2xl bg-muted/70 p-1">
           <TabsTrigger value="members" className="rounded-xl px-4 py-2">
             Miembros
           </TabsTrigger>
-          <TabsTrigger value="create" className="rounded-xl px-4 py-2">
-            Crear miembro
-          </TabsTrigger>
+          {canCreateMember ? (
+            <TabsTrigger value="create" className="rounded-xl px-4 py-2">
+              Crear miembro
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="invitations" className="rounded-xl px-4 py-2">
             Invitaciones
           </TabsTrigger>
@@ -228,7 +265,7 @@ export default function MembersPage() {
               </div>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {selectedMember && (
+              {selectedMember && canUpdateMember && (
                 <div className="mb-3 rounded-[1.5rem] border bg-muted/45 p-5">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -348,24 +385,26 @@ export default function MembersPage() {
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="rounded-full"
-                              onClick={() => {
-                                setSelectedMember(member);
-                                updateMemberForm.reset({
-                                  firstName: member.user.firstName,
-                                  lastName: member.user.lastName,
-                                  phone: member.phone ?? "",
-                                  documentId: member.documentId ?? "",
-                                  address: member.address ?? "",
-                                });
-                              }}
-                            >
-                              Editar
-                            </Button>
-                            {member.status === "ACTIVE" ? (
+                            {canUpdateMember ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-full"
+                                onClick={() => {
+                                  setSelectedMember(member);
+                                  updateMemberForm.reset({
+                                    firstName: member.user.firstName,
+                                    lastName: member.user.lastName,
+                                    phone: member.phone ?? "",
+                                    documentId: member.documentId ?? "",
+                                    address: member.address ?? "",
+                                  });
+                                }}
+                              >
+                                Editar
+                              </Button>
+                            ) : null}
+                            {canChangeMemberStatus && member.status === "ACTIVE" ? (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -380,7 +419,8 @@ export default function MembersPage() {
                               >
                                 Suspender
                               </Button>
-                            ) : (
+                            ) : null}
+                            {canChangeMemberStatus && member.status !== "ACTIVE" ? (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -395,24 +435,26 @@ export default function MembersPage() {
                               >
                                 Activar
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="rounded-full"
-                              disabled={removeMember.isPending}
-                              onClick={() =>
-                                removeMember.mutate(member.id, {
-                                  onSuccess: () => {
-                                    if (selectedMember?.id === member.id) {
-                                      setSelectedMember(null);
-                                    }
-                                  },
-                                })
-                              }
-                            >
-                              Remover
-                            </Button>
+                            ) : null}
+                            {canRemoveMember ? (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="rounded-full"
+                                disabled={removeMember.isPending}
+                                onClick={() =>
+                                  removeMember.mutate(member.id, {
+                                    onSuccess: () => {
+                                      if (selectedMember?.id === member.id) {
+                                        setSelectedMember(null);
+                                      }
+                                    },
+                                  })
+                                }
+                              >
+                                Remover
+                              </Button>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -574,53 +616,55 @@ export default function MembersPage() {
         </TabsContent>
 
         <TabsContent value="invitations">
-          <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-            <Card className="rounded-[1.75rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MailPlus className="size-5 text-primary" />
-                  Nueva invitacion
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-4"
-                  onSubmit={invitationForm.handleSubmit((data) =>
-                    createInvitation.mutate(data, {
-                      onSuccess: (res) => {
-                        setLastInvitationToken(res.data.token);
-                        invitationForm.reset();
-                      },
-                    }),
-                  )}
-                >
-                  <MemberField
-                    label="Email"
-                    register={invitationForm.register("email")}
-                  />
-                  <MemberField
-                    label="Expira en dias"
-                    type="number"
-                    register={invitationForm.register("expiresInDays")}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-fit rounded-full"
-                    disabled={createInvitation.isPending}
+          <div className={canCreateInvitation ? "grid gap-6 xl:grid-cols-[0.75fr_1.25fr]" : "grid gap-6"}>
+            {canCreateInvitation ? (
+              <Card className="rounded-[1.75rem]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MailPlus className="size-5 text-primary" />
+                    Nueva invitacion
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="grid gap-4"
+                    onSubmit={invitationForm.handleSubmit((data) =>
+                      createInvitation.mutate(data, {
+                        onSuccess: (res) => {
+                          setLastInvitationToken(res.data.token);
+                          invitationForm.reset();
+                        },
+                      }),
+                    )}
                   >
-                    Crear invitacion
-                  </Button>
-                </form>
-                {lastInvitationToken && (
-                  <div className="mt-5 rounded-2xl border bg-muted/60 p-4">
-                    <p className="text-sm font-semibold">Token generado</p>
-                    <p className="mt-2 break-all rounded-xl bg-background p-3 text-xs">
-                      {lastInvitationToken}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    <MemberField
+                      label="Email"
+                      register={invitationForm.register("email")}
+                    />
+                    <MemberField
+                      label="Expira en dias"
+                      type="number"
+                      register={invitationForm.register("expiresInDays")}
+                    />
+                    <Button
+                      type="submit"
+                      className="w-fit rounded-full"
+                      disabled={createInvitation.isPending}
+                    >
+                      Crear invitacion
+                    </Button>
+                  </form>
+                  {lastInvitationToken && (
+                    <div className="mt-5 rounded-2xl border bg-muted/60 p-4">
+                      <p className="text-sm font-semibold">Token generado</p>
+                      <p className="mt-2 break-all rounded-xl bg-background p-3 text-xs">
+                        {lastInvitationToken}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
 
             <Card className="rounded-[1.75rem]">
               <CardHeader>
@@ -678,7 +722,7 @@ export default function MembersPage() {
                             }).format(new Date(invitation.expiresAt))}
                           </p>
                         </div>
-                        {invitation.status === "PENDING" && (
+                        {canRevokeInvitation && invitation.status === "PENDING" && (
                           <Button
                             size="sm"
                             variant="outline"

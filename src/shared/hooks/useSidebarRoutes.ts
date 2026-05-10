@@ -96,14 +96,20 @@ export const useSidebarRoutes = () => {
       const primaryScreen =
         screens.find((screen) => screen.path === groupedConfig.primaryPath) ??
         screens[0];
-      const secondaryScreens = groupedConfig.secondaryPaths
+      const preferredSecondaryScreens = groupedConfig.secondaryPaths
         .map((path) => screens.find((screen) => screen.path === path))
-        .filter(
-          (
-            screen,
-          ): screen is (typeof modules)[number]["screens"][number] =>
-            Boolean(screen && screen.path !== primaryScreen.path),
+        .filter((screen): screen is (typeof modules)[number]["screens"][number] =>
+          Boolean(screen && screen.path !== primaryScreen.path),
         );
+      const remainingScreens = screens.filter(
+        (screen) =>
+          screen.path !== primaryScreen.path &&
+          !preferredSecondaryScreens.some((item) => item.path === screen.path),
+      );
+      const secondaryScreens = [
+        ...preferredSecondaryScreens,
+        ...remainingScreens,
+      ];
 
       return {
         title: groupedConfig.title,

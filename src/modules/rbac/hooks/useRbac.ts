@@ -7,7 +7,9 @@ import {
 import toast from "react-hot-toast";
 import {
   accessMatrixSchema,
+  endpointPermissionRuleSchema,
   navigationSchema,
+  type CreateEndpointPermissionRule,
   type CreatePermission,
   memberRolesSchema,
   permissionSchema,
@@ -31,6 +33,7 @@ export const rbacKeys = {
     [...rbacKeys.all, "matrix", organizationId] as const,
   navigation: (organizationId?: string, memberId?: string) =>
     [...rbacKeys.all, "navigation", organizationId, memberId] as const,
+  endpointRules: () => [...rbacKeys.all, "endpoint-rules"] as const,
 };
 
 export const useRbacPermissions = (
@@ -116,6 +119,19 @@ export const useRbacNavigation = (options?: {
       return navigationSchema.parse(res.data);
     },
     staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: false,
+  });
+
+export const useRbacEndpointRules = (options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: rbacKeys.endpointRules(),
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await rbacService.listEndpointRules();
+      return endpointPermissionRuleSchema.array().parse(res.data);
+    },
+    staleTime: 1000 * 60 * 10,
+    retry: false,
     refetchOnWindowFocus: false,
   });
 
@@ -205,5 +221,32 @@ export const useReplaceMemberRoles = () => {
       toast.success("Roles del miembro actualizados.");
     },
     onError: () => toast.error("No pudimos actualizar los roles del miembro."),
+  });
+};
+
+export const useUpsertEndpointRule = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateEndpointPermissionRule) =>
+      rbacService.upsertEndpointRule(data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: rbacKeys.all });
+      toast.success("Regla de endpoint guardada.");
+    },
+    onError: () => toast.error("No pudimos guardar la regla de endpoint."),
+  });
+};
+
+export const useDeleteEndpointRule = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ruleId: string) => rbacService.deleteEndpointRule(ruleId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: rbacKeys.all });
+      toast.success("Regla de endpoint eliminada.");
+    },
+    onError: () => toast.error("No pudimos eliminar la regla de endpoint."),
   });
 };

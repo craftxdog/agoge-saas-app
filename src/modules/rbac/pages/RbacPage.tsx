@@ -1,9 +1,11 @@
 import {
   KeyRound,
   LockKeyhole,
+  Route,
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   UsersRound,
 } from "lucide-react";
 import { useState } from "react";
@@ -25,18 +27,27 @@ import { ScrollPanel } from "@/shared/components/ScrollPanel";
 import { useDebouncedValue } from "@/shared/hooks/useDebouncedValue";
 import { useCursorPagination } from "@/shared/hooks/useCursorPagination";
 import { useMembers } from "@/modules/users/hooks/useUsers";
-import type { CreatePermission, Permission, Role } from "../schemas/rbac.schema";
+import type {
+  CreateEndpointPermissionRule,
+  CreatePermission,
+  EndpointMethod,
+  Permission,
+  Role,
+} from "../schemas/rbac.schema";
 import {
   useCreateRbacPermission,
   useCreateRbacRole,
+  useDeleteEndpointRule,
   useDeleteRbacRole,
   useMemberRoles,
   useRbacAccessMatrix,
+  useRbacEndpointRules,
   useRbacPermissions,
   useRbacRoles,
   useReplaceMemberRoles,
   useReplaceRolePermissions,
   useUpdateRbacRole,
+  useUpsertEndpointRule,
 } from "../hooks/useRbac";
 
 const roleDefaults = {
@@ -51,6 +62,24 @@ const permissionDefaults = {
   name: "",
   description: "",
   moduleKey: "",
+};
+
+const endpointMethods: EndpointMethod[] = [
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+  "HEAD",
+];
+
+const endpointRuleDefaults: CreateEndpointPermissionRule = {
+  method: "POST",
+  pathPattern: "",
+  permissionKey: "",
+  description: "",
+  isActive: true,
 };
 
 const withoutEmptyStrings = <T extends Record<string, unknown>>(payload: T) =>
@@ -77,6 +106,8 @@ export default function RbacPage() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [roleForm, setRoleForm] = useState(roleDefaults);
   const [permissionForm, setPermissionForm] = useState(permissionDefaults);
+  const [endpointRuleForm, setEndpointRuleForm] =
+    useState(endpointRuleDefaults);
   const [selectedPermissionKeys, setSelectedPermissionKeys] = useState<string[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [memberRoleKeys, setMemberRoleKeys] = useState<string[]>([]);
@@ -102,6 +133,9 @@ export default function RbacPage() {
   }, {
     enabled: activeTab === "permissions",
   });
+  const endpointRules = useRbacEndpointRules({
+    enabled: activeTab === "permissions" || activeTab === "matrix",
+  });
   const matrix = useRbacAccessMatrix({
     enabled:
       activeTab === "roles" ||
@@ -125,6 +159,8 @@ export default function RbacPage() {
   const replacePermissions = useReplaceRolePermissions();
   const deleteRole = useDeleteRbacRole();
   const replaceMemberRoles = useReplaceMemberRoles();
+  const upsertEndpointRule = useUpsertEndpointRule();
+  const deleteEndpointRule = useDeleteEndpointRule();
 
   const roleCatalog = matrix.data?.roles ?? roles.data?.items ?? [];
   const listedRoles = roles.data?.items ?? roleCatalog;
@@ -659,6 +695,213 @@ export default function RbacPage() {
                       )}
                   </div>
                 </ScrollPanel>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-[1.75rem] xl:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Route className="size-5 text-primary" />
+                  Reglas de endpoints
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Conecta un permiso fino con el metodo y ruta exacta que la API
+                  debe proteger. El frontend usa estas reglas para mostrar u
+                  ocultar acciones.
+                </p>
+              </CardHeader>
+              <CardContent className="grid gap-5">
+                <form
+                  className="grid gap-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    upsertEndpointRule.mutate(
+                      withoutEmptyStrings(endpointRuleForm) as CreateEndpointPermissionRule,
+                      {
+                        onSuccess: () =>
+                          setEndpointRuleForm(endpointRuleDefaults),
+                      },
+                    );
+                  }}
+                >
+                  <div className="grid gap-3 lg:grid-cols-[0.55fr_1.45fr_1fr]">
+                    <div className="grid gap-2">
+                      <Label>Metodo</Label>
+                      <select
+                        className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
+                        value={endpointRuleForm.method}
+                        onChange={(event) =>
+                          setEndpointRuleForm((current) => ({
+                            ...current,
+                            method: event.target.value as EndpointMethod,
+                          }))
+                        }
+                      >
+                        {endpointMethods.map((method) => (
+                          <option key={method} value={method}>
+                            {method}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Ruta API</Label>
+                      <Input
+                        className="h-11 rounded-2xl bg-white/70"
+                        placeholder="/billing/payments/:paymentId/transactions"
+                        value={endpointRuleForm.pathPattern}
+                        onChange={(event) =>
+                          setEndpointRuleForm((current) => ({
+                            ...current,
+                            pathPattern: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Permiso requerido</Label>
+                      <select
+                        className="h-11 rounded-2xl border bg-white/70 px-3 text-sm"
+                        value={endpointRuleForm.permissionKey}
+                        onChange={(event) =>
+                          setEndpointRuleForm((current) => ({
+                            ...current,
+                            permissionKey: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Selecciona permiso</option>
+                        {availableCatalogPermissions.map((permission) => (
+                          <option key={permission.key} value={permission.key}>
+                            {permission.key}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+                    <div className="grid gap-2">
+                      <Label>Descripcion</Label>
+                      <Input
+                        className="h-11 rounded-2xl bg-white/70"
+                        placeholder="Crear transacciones de cobro"
+                        value={endpointRuleForm.description ?? ""}
+                        onChange={(event) =>
+                          setEndpointRuleForm((current) => ({
+                            ...current,
+                            description: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <label className="flex items-center gap-3 self-end rounded-2xl border bg-white/60 px-4 py-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={endpointRuleForm.isActive ?? true}
+                        onChange={(event) =>
+                          setEndpointRuleForm((current) => ({
+                            ...current,
+                            isActive: event.target.checked,
+                          }))
+                        }
+                      />
+                      Activa
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="submit"
+                      className="rounded-full"
+                      disabled={
+                        upsertEndpointRule.isPending ||
+                        !endpointRuleForm.pathPattern ||
+                        !endpointRuleForm.permissionKey
+                      }
+                    >
+                      Guardar regla
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => setEndpointRuleForm(endpointRuleDefaults)}
+                    >
+                      Limpiar
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="grid gap-3">
+                  {endpointRules.isLoading
+                    ? Array.from({ length: 3 }).map((_, index) => (
+                        <Skeleton key={index} className="h-20 rounded-2xl" />
+                      ))
+                    : (endpointRules.data ?? []).map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="flex flex-col gap-3 rounded-2xl border bg-white/60 p-4 lg:flex-row lg:items-center lg:justify-between"
+                        >
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary" className="rounded-full">
+                                {rule.method}
+                              </Badge>
+                              <p className="font-mono text-sm">{rule.pathPattern}</p>
+                              <Badge variant="outline" className="rounded-full">
+                                {rule.permissionKey}
+                              </Badge>
+                              <Badge
+                                variant={rule.isActive ? "default" : "outline"}
+                                className="rounded-full"
+                              >
+                                {rule.isActive ? "Activa" : "Inactiva"}
+                              </Badge>
+                            </div>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {rule.description ?? "Sin descripcion"}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full"
+                              onClick={() =>
+                                setEndpointRuleForm({
+                                  method: rule.method,
+                                  pathPattern: rule.pathPattern,
+                                  permissionKey: rule.permissionKey,
+                                  description: rule.description ?? "",
+                                  isActive: rule.isActive,
+                                })
+                              }
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="rounded-full"
+                              disabled={deleteEndpointRule.isPending}
+                              onClick={() => deleteEndpointRule.mutate(rule.id)}
+                            >
+                              <Trash2 className="mr-2 size-4" />
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                  {!endpointRules.isLoading && (endpointRules.data ?? []).length === 0 && (
+                    <p className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+                      No hay reglas de endpoint registradas.
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { useAuth } from "@/shared/hooks/useAuth";
+import { rbacKeys } from "@/modules/rbac/hooks/useRbac";
 import {
   organizationModuleSchema,
   type OrganizationModule,
@@ -252,6 +253,7 @@ export const useCreateOrganizationScreen = () => {
       await queryClient.invalidateQueries({
         queryKey: organizationSettingsKeys.screens(),
       });
+      await queryClient.invalidateQueries({ queryKey: rbacKeys.all });
       toast.success("Pantalla creada.");
     },
     onError: () => {
@@ -275,6 +277,7 @@ export const useUpdateOrganizationScreen = () => {
       await queryClient.invalidateQueries({
         queryKey: organizationSettingsKeys.screens(),
       });
+      await queryClient.invalidateQueries({ queryKey: rbacKeys.all });
       toast.success("Pantalla actualizada.");
     },
     onError: () => {
@@ -292,6 +295,7 @@ export const useDeleteOrganizationScreen = () => {
       await queryClient.invalidateQueries({
         queryKey: organizationSettingsKeys.screens(),
       });
+      await queryClient.invalidateQueries({ queryKey: rbacKeys.all });
       toast.success("Pantalla eliminada.");
     },
     onError: () => {

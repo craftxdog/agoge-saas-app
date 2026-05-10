@@ -3,8 +3,10 @@ import type { ApiResponse } from "@/shared/api/types";
 import type {
   AccessMatrix,
   Navigation,
+  CreateEndpointPermissionRule,
   CreatePermission,
   CreateRole,
+  EndpointPermissionRule,
   MemberRoles,
   Permission,
   RbacPermissionQuery,
@@ -72,4 +74,18 @@ export const rbacService = {
 
   getNavigation: () =>
     http.get<ApiResponse<Navigation>>("/rbac/navigation"),
+
+  listEndpointRules: () =>
+    http.get<ApiResponse<EndpointPermissionRule[]>>("/rbac/endpoint-rules"),
+
+  upsertEndpointRule: (data: CreateEndpointPermissionRule) =>
+    http.post<ApiResponse<EndpointPermissionRule>, CreateEndpointPermissionRule>(
+      "/rbac/endpoint-rules",
+      data,
+    ),
+
+  deleteEndpointRule: (ruleId: string) =>
+    http.delete<ApiResponse<EndpointPermissionRule>>(
+      `/rbac/endpoint-rules/${ruleId}`,
+    ),
 };

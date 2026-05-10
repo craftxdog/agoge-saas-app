@@ -94,6 +94,7 @@ export const organizationScreenSchema = z.object({
   config: z.unknown().optional(),
   sortOrder: z.number(),
   isVisible: z.boolean(),
+  accessScope: z.enum(["tenant", "self", "public"]).optional(),
   updatedAt: z.string(),
 });
 
@@ -110,6 +111,7 @@ export const createOrganizationScreenSchema = z.object({
   requiredPermissionKey: optionalText(z.string().max(120)),
   sortOrder: z.coerce.number().int().optional(),
   isVisible: z.boolean().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const updateOrganizationScreenSchema =

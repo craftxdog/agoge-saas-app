@@ -6,6 +6,7 @@ import {
   ModuleLandingRoute,
   ProtectedRoute,
 } from "../shared/components/ProtectedRoute";
+import { DynamicScreenRoute } from "@/shared/components/DynamicScreenRoute";
 
 import Dashboard from "@/modules/dashboard/Dashboard";
 import LoginPage from "@/modules/auth/pages/login-page";
@@ -115,6 +116,14 @@ export const AppRouter = createBrowserRouter([
         <SchedulesPage initialTab="hours" surface="tenant" />,
       ),
       withAuthorizedScreen(
+        "/app/schedules/business-hours/members",
+        <SchedulesPage initialTab="availability" surface="tenant" />,
+      ),
+      withAuthorizedScreen(
+        "/app/schedules/members/availability",
+        <SchedulesPage initialTab="availability" surface="tenant" />,
+      ),
+      withAuthorizedScreen(
         "/app/schedules/me/availability",
         <SchedulesPage surface="self" />,
       ),
@@ -144,7 +153,7 @@ export const AppRouter = createBrowserRouter([
       ),
       {
         path: "*",
-        element: <NotFoundPage />,
+        element: <DynamicScreenRoute />,
       },
     ],
   },

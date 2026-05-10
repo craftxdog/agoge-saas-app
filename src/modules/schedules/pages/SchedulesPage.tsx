@@ -6,7 +6,7 @@ import {
   Sparkles,
   UserRoundCheck,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollPanel } from "@/shared/components/ScrollPanel";
-import { useAuth } from "@/shared/hooks/useAuth";
+import { useEndpointAccess } from "@/shared/hooks/useEndpointAccess";
 import { useMembers } from "@/modules/users/hooks/useUsers";
 import { CustomerSchedulesView } from "../components/CustomerSchedulesView";
 import {
@@ -99,9 +99,114 @@ export default function SchedulesPage({
   initialTab = "hours",
   surface = "tenant",
 }: SchedulesPageProps) {
-  const { hasPermission } = useAuth();
-  const canReadTenantSchedules = hasPermission("schedules.read");
-  const [activeTab, setActiveTab] = useState<SchedulesTab>(initialTab);
+  const endpointAccess = useEndpointAccess();
+  const canReadTenantSchedules = endpointAccess.canAny([
+    {
+      method: "GET",
+      path: "/schedules/day",
+      fallbackPermissions: ["schedules.read"],
+    },
+    {
+      method: "GET",
+      path: "/schedules/locations",
+      fallbackPermissions: ["schedules.read"],
+    },
+    {
+      method: "GET",
+      path: "/schedules/business-hours",
+      fallbackPermissions: ["schedules.read"],
+    },
+    {
+      method: "GET",
+      path: "/schedules/exceptions",
+      fallbackPermissions: ["schedules.read"],
+    },
+  ]);
+  const canWriteSchedules = endpointAccess.canAny([
+    {
+      method: "POST",
+      path: "/schedules/locations",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "PATCH",
+      path: "/schedules/locations/:locationId",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "DELETE",
+      path: "/schedules/locations/:locationId",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "POST",
+      path: "/schedules/business-hours",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "PUT",
+      path: "/schedules/business-hours",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "PATCH",
+      path: "/schedules/business-hours/:businessHourId",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "DELETE",
+      path: "/schedules/business-hours/:businessHourId",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "POST",
+      path: "/schedules/exceptions",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "PATCH",
+      path: "/schedules/exceptions/:exceptionId",
+      fallbackPermissions: ["schedules.write"],
+    },
+    {
+      method: "DELETE",
+      path: "/schedules/exceptions/:exceptionId",
+      fallbackPermissions: ["schedules.write"],
+    },
+  ]);
+  const canWriteMemberAvailability = endpointAccess.canAny([
+    {
+      method: "POST",
+      path: "/schedules/members/:memberId/availability",
+      fallbackPermissions: ["schedules.write", "schedules.stable"],
+    },
+    {
+      method: "PUT",
+      path: "/schedules/members/:memberId/availability",
+      fallbackPermissions: ["schedules.write", "schedules.stable"],
+    },
+    {
+      method: "PATCH",
+      path: "/schedules/availability/:scheduleId",
+      fallbackPermissions: ["schedules.write", "schedules.stable"],
+    },
+    {
+      method: "DELETE",
+      path: "/schedules/availability/:scheduleId",
+      fallbackPermissions: ["schedules.write", "schedules.stable"],
+    },
+  ]);
+  const canReadUsers = endpointAccess.can({
+    method: "GET",
+    path: "/users/members",
+    fallbackPermissions: ["users.read"],
+  });
+  const canUseAvailability = canReadTenantSchedules && canReadUsers;
+  const initialVisibleTab =
+    initialTab === "availability" && !canUseAvailability ? "hours" : initialTab;
+  const [activeTab, setActiveTab] = useState<SchedulesTab>(initialVisibleTab);
+  const visibleActiveTab =
+    activeTab === "availability" && !canUseAvailability ? "hours" : activeTab;
   const [locationSearch, setLocationSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [dayDate, setDayDate] = useState(today);
@@ -140,12 +245,12 @@ export default function SchedulesPage({
     sortBy: "createdAt",
     sortDirection: "desc",
   }, {
-    enabled: canReadTenantSchedules,
+    enabled: canUseAvailability,
   });
   const memberSchedules = useMemberSchedules(memberId || undefined, {
     locationId: locationFilter || undefined,
   }, {
-    enabled: canReadTenantSchedules,
+    enabled: canUseAvailability,
   });
 
   const createLocation = useCreateLocation();
@@ -164,10 +269,6 @@ export default function SchedulesPage({
   const deleteMemberSchedule = useDeleteMemberSchedule();
 
   const locationOptions = locations.data ?? [];
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
 
   if (surface === "self") {
     return <CustomerSchedulesView />;
@@ -193,7 +294,7 @@ export default function SchedulesPage({
       </div>
 
       <Tabs
-        value={activeTab}
+        value={visibleActiveTab}
         onValueChange={(value) => setActiveTab(value as SchedulesTab)}
         className="gap-6"
       >
@@ -210,9 +311,11 @@ export default function SchedulesPage({
           <TabsTrigger value="exceptions" className="rounded-xl px-4 py-2">
             Excepciones
           </TabsTrigger>
-          <TabsTrigger value="availability" className="rounded-xl px-4 py-2">
-            Disponibilidad
-          </TabsTrigger>
+          {canUseAvailability ? (
+            <TabsTrigger value="availability" className="rounded-xl px-4 py-2">
+              Disponibilidad
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="day">
@@ -275,52 +378,54 @@ export default function SchedulesPage({
         </TabsContent>
 
         <TabsContent value="locations">
-          <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-            <Card className="rounded-[1.75rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="size-5 text-primary" />
-                  Nueva sede
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    createLocation.mutate(
-                      clean(locationForm) as typeof locationForm,
-                      { onSuccess: () => setLocationForm(baseLocationForm) },
-                    );
-                  }}
-                >
-                  <TextField
-                    label="Nombre"
-                    value={locationForm.name}
-                    onChange={(value) =>
-                      setLocationForm((current) => ({ ...current, name: value }))
-                    }
-                  />
-                  <TextField
-                    label="Direccion"
-                    value={locationForm.address}
-                    onChange={(value) =>
-                      setLocationForm((current) => ({ ...current, address: value }))
-                    }
-                  />
-                  <TextField
-                    label="Zona horaria"
-                    value={locationForm.timezone}
-                    onChange={(value) =>
-                      setLocationForm((current) => ({ ...current, timezone: value }))
-                    }
-                  />
-                  <Button className="w-fit rounded-full" disabled={createLocation.isPending}>
-                    Crear sede
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+          <div className={canWriteSchedules ? "grid gap-6 xl:grid-cols-[0.75fr_1.25fr]" : "grid gap-6"}>
+            {canWriteSchedules ? (
+              <Card className="rounded-[1.75rem]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="size-5 text-primary" />
+                    Nueva sede
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="grid gap-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      createLocation.mutate(
+                        clean(locationForm) as typeof locationForm,
+                        { onSuccess: () => setLocationForm(baseLocationForm) },
+                      );
+                    }}
+                  >
+                    <TextField
+                      label="Nombre"
+                      value={locationForm.name}
+                      onChange={(value) =>
+                        setLocationForm((current) => ({ ...current, name: value }))
+                      }
+                    />
+                    <TextField
+                      label="Direccion"
+                      value={locationForm.address}
+                      onChange={(value) =>
+                        setLocationForm((current) => ({ ...current, address: value }))
+                      }
+                    />
+                    <TextField
+                      label="Zona horaria"
+                      value={locationForm.timezone}
+                      onChange={(value) =>
+                        setLocationForm((current) => ({ ...current, timezone: value }))
+                      }
+                    />
+                    <Button className="w-fit rounded-full" disabled={createLocation.isPending}>
+                      Crear sede
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <Card className="rounded-[1.75rem]">
               <CardHeader>
@@ -356,29 +461,31 @@ export default function SchedulesPage({
                               {location.address ?? "Sin direccion"} · {location.timezone}
                             </p>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="rounded-full"
-                              onClick={() =>
-                                updateLocation.mutate({
-                                  locationId: location.id,
-                                  data: { isActive: !location.isActive },
-                                })
-                              }
-                            >
-                              {location.isActive ? "Desactivar" : "Activar"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="rounded-full"
-                              onClick={() => deleteLocation.mutate(location.id)}
-                            >
-                              Eliminar
-                            </Button>
-                          </div>
+                          {canWriteSchedules ? (
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-full"
+                                onClick={() =>
+                                  updateLocation.mutate({
+                                    locationId: location.id,
+                                    data: { isActive: !location.isActive },
+                                  })
+                                }
+                              >
+                                {location.isActive ? "Desactivar" : "Activar"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="rounded-full"
+                                onClick={() => deleteLocation.mutate(location.id)}
+                              >
+                                Eliminar
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -388,88 +495,90 @@ export default function SchedulesPage({
         </TabsContent>
 
         <TabsContent value="hours">
-          <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-            <Card className="rounded-[1.75rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock3 className="size-5 text-primary" />
-                  Horario semanal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    createBusinessHour.mutate(clean(hourForm) as CreateBusinessHour);
-                  }}
-                >
-                  <LocationSelect
-                    value={hourForm.locationId ?? ""}
-                    locations={locationOptions}
-                    onChange={(value) =>
-                      setHourForm((current) => ({ ...current, locationId: value }))
-                    }
-                  />
-                  <DaySelect
-                    value={hourForm.dayOfWeek}
-                    onChange={(value) =>
-                      setHourForm((current) => ({ ...current, dayOfWeek: value }))
-                    }
-                  />
-                  <TimePair
-                    start={hourForm.startTime}
-                    end={hourForm.endTime}
-                    onStart={(value) =>
-                      setHourForm((current) => ({ ...current, startTime: value }))
-                    }
-                    onEnd={(value) =>
-                      setHourForm((current) => ({ ...current, endTime: value }))
-                    }
-                  />
-                  <label className="flex items-center gap-3 rounded-2xl border bg-white/60 p-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(hourForm.isClosed)}
-                      onChange={(event) =>
-                        setHourForm((current) => ({
-                          ...current,
-                          isClosed: event.target.checked,
-                        }))
+          <div className={canWriteSchedules ? "grid gap-6 xl:grid-cols-[0.75fr_1.25fr]" : "grid gap-6"}>
+            {canWriteSchedules ? (
+              <Card className="rounded-[1.75rem]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock3 className="size-5 text-primary" />
+                    Horario semanal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="grid gap-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      createBusinessHour.mutate(clean(hourForm) as CreateBusinessHour);
+                    }}
+                  >
+                    <LocationSelect
+                      value={hourForm.locationId ?? ""}
+                      locations={locationOptions}
+                      onChange={(value) =>
+                        setHourForm((current) => ({ ...current, locationId: value }))
                       }
                     />
-                    Esta ventana es de cierre
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <Button className="rounded-full" disabled={createBusinessHour.isPending}>
-                      Agregar horario
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      disabled={replaceBusinessHours.isPending}
-                      onClick={() =>
-                        replaceBusinessHours.mutate(
-                          [1, 2, 3, 4, 5].map((dayOfWeek) =>
-                            clean({
-                              ...hourForm,
-                              dayOfWeek,
-                              startTime: "06:00",
-                              endTime: "21:00",
-                              isClosed: false,
-                            }) as CreateBusinessHour,
-                          ),
-                        )
+                    <DaySelect
+                      value={hourForm.dayOfWeek}
+                      onChange={(value) =>
+                        setHourForm((current) => ({ ...current, dayOfWeek: value }))
                       }
-                    >
-                      <RefreshCw className="size-4" />
-                      Reemplazar Lun-Vie
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+                    />
+                    <TimePair
+                      start={hourForm.startTime}
+                      end={hourForm.endTime}
+                      onStart={(value) =>
+                        setHourForm((current) => ({ ...current, startTime: value }))
+                      }
+                      onEnd={(value) =>
+                        setHourForm((current) => ({ ...current, endTime: value }))
+                      }
+                    />
+                    <label className="flex items-center gap-3 rounded-2xl border bg-white/60 p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(hourForm.isClosed)}
+                        onChange={(event) =>
+                          setHourForm((current) => ({
+                            ...current,
+                            isClosed: event.target.checked,
+                          }))
+                        }
+                      />
+                      Esta ventana es de cierre
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button className="rounded-full" disabled={createBusinessHour.isPending}>
+                        Agregar horario
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={replaceBusinessHours.isPending}
+                        onClick={() =>
+                          replaceBusinessHours.mutate(
+                            [1, 2, 3, 4, 5].map((dayOfWeek) =>
+                              clean({
+                                ...hourForm,
+                                dayOfWeek,
+                                startTime: "06:00",
+                                endTime: "21:00",
+                                isClosed: false,
+                              }) as CreateBusinessHour,
+                            ),
+                          )
+                        }
+                      >
+                        <RefreshCw className="size-4" />
+                        Reemplazar Lun-Vie
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <RecordsCard
               title="Horarios guardados"
@@ -488,7 +597,8 @@ export default function SchedulesPage({
                   title={`${hour.dayName} · ${hour.startTime}-${hour.endTime}`}
                   description={`${hour.location?.name ?? "Organizacion"} · ${hour.isClosed ? "Cierre" : "Apertura"}`}
                   actions={
-                    <>
+                    canWriteSchedules ? (
+                      <>
                       <Button
                         size="sm"
                         variant="outline"
@@ -510,7 +620,8 @@ export default function SchedulesPage({
                       >
                         Eliminar
                       </Button>
-                    </>
+                      </>
+                    ) : null
                   }
                 />
               ))}
@@ -519,76 +630,78 @@ export default function SchedulesPage({
         </TabsContent>
 
         <TabsContent value="exceptions">
-          <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-            <Card className="rounded-[1.75rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="size-5 text-primary" />
-                  Nueva excepcion
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    createException.mutate(clean(exceptionForm) as typeof exceptionForm);
-                  }}
-                >
-                  <LocationSelect
-                    value={exceptionForm.locationId}
-                    locations={locationOptions}
-                    onChange={(value) =>
-                      setExceptionForm((current) => ({
-                        ...current,
-                        locationId: value,
-                      }))
-                    }
-                  />
-                  <TextField
-                    label="Fecha"
-                    type="date"
-                    value={exceptionForm.date}
-                    onChange={(value) =>
-                      setExceptionForm((current) => ({ ...current, date: value }))
-                    }
-                  />
-                  <TextField
-                    label="Nombre"
-                    value={exceptionForm.name}
-                    onChange={(value) =>
-                      setExceptionForm((current) => ({ ...current, name: value }))
-                    }
-                  />
-                  <TimePair
-                    start={exceptionForm.startTime}
-                    end={exceptionForm.endTime}
-                    onStart={(value) =>
-                      setExceptionForm((current) => ({ ...current, startTime: value }))
-                    }
-                    onEnd={(value) =>
-                      setExceptionForm((current) => ({ ...current, endTime: value }))
-                    }
-                  />
-                  <label className="flex items-center gap-3 rounded-2xl border bg-white/60 p-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={exceptionForm.isClosed}
-                      onChange={(event) =>
+          <div className={canWriteSchedules ? "grid gap-6 xl:grid-cols-[0.75fr_1.25fr]" : "grid gap-6"}>
+            {canWriteSchedules ? (
+              <Card className="rounded-[1.75rem]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="size-5 text-primary" />
+                    Nueva excepcion
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="grid gap-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      createException.mutate(clean(exceptionForm) as typeof exceptionForm);
+                    }}
+                  >
+                    <LocationSelect
+                      value={exceptionForm.locationId}
+                      locations={locationOptions}
+                      onChange={(value) =>
                         setExceptionForm((current) => ({
                           ...current,
-                          isClosed: event.target.checked,
+                          locationId: value,
                         }))
                       }
                     />
-                    Cierre o cierre parcial
-                  </label>
-                  <Button className="w-fit rounded-full" disabled={createException.isPending}>
-                    Crear excepcion
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                    <TextField
+                      label="Fecha"
+                      type="date"
+                      value={exceptionForm.date}
+                      onChange={(value) =>
+                        setExceptionForm((current) => ({ ...current, date: value }))
+                      }
+                    />
+                    <TextField
+                      label="Nombre"
+                      value={exceptionForm.name}
+                      onChange={(value) =>
+                        setExceptionForm((current) => ({ ...current, name: value }))
+                      }
+                    />
+                    <TimePair
+                      start={exceptionForm.startTime}
+                      end={exceptionForm.endTime}
+                      onStart={(value) =>
+                        setExceptionForm((current) => ({ ...current, startTime: value }))
+                      }
+                      onEnd={(value) =>
+                        setExceptionForm((current) => ({ ...current, endTime: value }))
+                      }
+                    />
+                    <label className="flex items-center gap-3 rounded-2xl border bg-white/60 p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={exceptionForm.isClosed}
+                        onChange={(event) =>
+                          setExceptionForm((current) => ({
+                            ...current,
+                            isClosed: event.target.checked,
+                          }))
+                        }
+                      />
+                      Cierre o cierre parcial
+                    </label>
+                    <Button className="w-fit rounded-full" disabled={createException.isPending}>
+                      Crear excepcion
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <RecordsCard title="Excepciones proximas">
               {exceptions.data?.map((exception) => (
@@ -597,7 +710,8 @@ export default function SchedulesPage({
                   title={`${exception.date} · ${exception.name}`}
                   description={`${exception.location?.name ?? "Organizacion"} · ${exception.isClosed ? "Cierre" : "Horario especial"} ${exception.startTime ?? ""}-${exception.endTime ?? ""}`}
                   actions={
-                    <>
+                    canWriteSchedules ? (
+                      <>
                       <Button
                         size="sm"
                         variant="outline"
@@ -619,7 +733,8 @@ export default function SchedulesPage({
                       >
                         Eliminar
                       </Button>
-                    </>
+                      </>
+                    ) : null
                   }
                 />
               ))}
@@ -628,103 +743,113 @@ export default function SchedulesPage({
         </TabsContent>
 
         <TabsContent value="availability">
-          <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
-            <Card className="rounded-[1.75rem]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserRoundCheck className="size-5 text-primary" />
-                  Disponibilidad de miembro
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form
-                  className="grid gap-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!memberId) return;
-                    createMemberSchedule.mutate({
-                      memberId,
-                      data: clean(availabilityForm) as CreateMemberSchedule,
-                    });
-                  }}
-                >
-                  <MemberSelect
-                    value={memberId}
-                    members={members.data?.items ?? []}
-                    onChange={setMemberId}
-                  />
-                  <LocationSelect
-                    value={availabilityForm.locationId ?? ""}
-                    locations={locationOptions}
-                    onChange={(value) =>
-                      setAvailabilityForm((current) => ({
-                        ...current,
-                        locationId: value,
-                      }))
-                    }
-                  />
-                  <DaySelect
-                    value={availabilityForm.dayOfWeek}
-                    onChange={(value) =>
-                      setAvailabilityForm((current) => ({
-                        ...current,
-                        dayOfWeek: value,
-                      }))
-                    }
-                  />
-                  <TimePair
-                    start={availabilityForm.startTime}
-                    end={availabilityForm.endTime}
-                    onStart={(value) =>
-                      setAvailabilityForm((current) => ({
-                        ...current,
-                        startTime: value,
-                      }))
-                    }
-                    onEnd={(value) =>
-                      setAvailabilityForm((current) => ({ ...current, endTime: value }))
-                    }
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      className="rounded-full"
-                      disabled={!memberId || createMemberSchedule.isPending}
-                    >
-                      Agregar disponibilidad
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      disabled={!memberId || replaceMemberSchedules.isPending}
-                      onClick={() =>
-                        replaceMemberSchedules.mutate({
-                          memberId,
-                          schedules: [1, 2, 3, 4, 5].map(
-                            (dayOfWeek) =>
-                              clean({
-                                ...availabilityForm,
-                                dayOfWeek,
-                              }) as CreateMemberSchedule,
-                          ),
-                        })
+          <div className={canWriteMemberAvailability ? "grid gap-6 xl:grid-cols-[0.75fr_1.25fr]" : "grid gap-6"}>
+            {canWriteMemberAvailability ? (
+              <Card className="rounded-[1.75rem]">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserRoundCheck className="size-5 text-primary" />
+                    Disponibilidad de miembro
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="grid gap-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (!memberId) return;
+                      createMemberSchedule.mutate({
+                        memberId,
+                        data: clean(availabilityForm) as CreateMemberSchedule,
+                      });
+                    }}
+                  >
+                    <MemberSelect
+                      value={memberId}
+                      members={members.data?.items ?? []}
+                      onChange={setMemberId}
+                    />
+                    <LocationSelect
+                      value={availabilityForm.locationId ?? ""}
+                      locations={locationOptions}
+                      onChange={(value) =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          locationId: value,
+                        }))
                       }
-                    >
-                      Reemplazar Lun-Vie
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+                    />
+                    <DaySelect
+                      value={availabilityForm.dayOfWeek}
+                      onChange={(value) =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          dayOfWeek: value,
+                        }))
+                      }
+                    />
+                    <TimePair
+                      start={availabilityForm.startTime}
+                      end={availabilityForm.endTime}
+                      onStart={(value) =>
+                        setAvailabilityForm((current) => ({
+                          ...current,
+                          startTime: value,
+                        }))
+                      }
+                      onEnd={(value) =>
+                        setAvailabilityForm((current) => ({ ...current, endTime: value }))
+                      }
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        className="rounded-full"
+                        disabled={!memberId || createMemberSchedule.isPending}
+                      >
+                        Agregar disponibilidad
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={!memberId || replaceMemberSchedules.isPending}
+                        onClick={() =>
+                          replaceMemberSchedules.mutate({
+                            memberId,
+                            schedules: [1, 2, 3, 4, 5].map(
+                              (dayOfWeek) =>
+                                clean({
+                                  ...availabilityForm,
+                                  dayOfWeek,
+                                }) as CreateMemberSchedule,
+                            ),
+                          })
+                        }
+                      >
+                        Reemplazar Lun-Vie
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            ) : null}
 
             <RecordsCard title="Disponibilidad guardada">
+              {!canWriteMemberAvailability ? (
+                <MemberSelect
+                  value={memberId}
+                  members={members.data?.items ?? []}
+                  onChange={setMemberId}
+                />
+              ) : null}
               {memberSchedules.data?.map((schedule) => (
                 <RecordRow
                   key={schedule.id}
                   title={`${schedule.dayName} · ${schedule.startTime}-${schedule.endTime}`}
                   description={`${schedule.member.firstName} ${schedule.member.lastName} · ${schedule.location?.name ?? "Todas las sedes"}`}
                   actions={
-                    <>
+                    canWriteMemberAvailability ? (
+                      <>
                       <Button
                         size="sm"
                         variant="outline"
@@ -746,7 +871,8 @@ export default function SchedulesPage({
                       >
                         Eliminar
                       </Button>
-                    </>
+                      </>
+                    ) : null
                   }
                 />
               ))}
@@ -978,7 +1104,7 @@ function RecordRow({
 }: {
   title: string;
   description: string;
-  actions: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl border bg-white/60 p-4">
@@ -987,7 +1113,7 @@ function RecordRow({
           <p className="font-semibold">{title}</p>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
-        <div className="flex flex-wrap gap-2">{actions}</div>
+        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
     </div>
   );
